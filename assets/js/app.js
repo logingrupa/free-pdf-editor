@@ -5,7 +5,6 @@ import * as V from './viewer.js';
 import { buildPdf } from './exporter.js';
 import { ICON } from './icons.js';
 import { openMenu, onLongPress } from './menu.js';
-import { LINE_H } from './text.js';
 import { saveBlob, readAsDataURL } from './util.js';
 
 const t = window.i18n.t;
@@ -228,8 +227,8 @@ const FIELDS = {
   ellipse: ['color', 'width', 'fill', 'angle'],
   highlight: ['fill', 'opacity', 'angle'],
   whiteout: ['fill', 'angle'],
-  text: ['color', 'size', 'family', 'face', 'align', 'lh', 'angle', 'box'],
-  etext: ['color', 'size', 'family', 'face', 'align', 'lh', 'box'],
+  text: ['color', 'size', 'family', 'face', 'hl', 'para', 'angle', 'effects', 'box'],
+  etext: ['color', 'size', 'family', 'face', 'hl', 'para', 'effects', 'box'],
   image: ['angle'],
   select: [],
   edit: [],
@@ -242,10 +241,20 @@ function target() {
   return a ? { obj: a, type: a.type, annot: true } : { obj: S.state.style[S.state.tool], type: S.state.tool, annot: false };
 }
 
+// Text carries three levels: one character style per stretch of letters, one
+// setting per paragraph, and the rest on the box. A property is routed by which
+// of the three it belongs to, so the caret decides how far a change reaches.
+const CHAR_PROPS = ['color', 'size', 'family', 'bold', 'italic', 'hl', 'under'];
+const PARA_PROPS = ['align', 'lh', 'before', 'after', 'indent'];
+const only = (patch, list) => Object.keys(patch).every(k => list.includes(k));
+
 // repaint rebuilds the panel, so a control still under the pointer asks not to
 function setProp(patch, repaint = true) {
   const cur = target();
-  if (cur.annot) S.updateAnnot(cur.obj.id, patch);
+  const texty = cur.annot && (cur.type === 'text' || cur.type === 'etext');
+  if (texty && only(patch, CHAR_PROPS)) V.styleText(cur.obj, patch);
+  else if (texty && only(patch, PARA_PROPS)) V.styleParagraph(cur.obj, patch);
+  else if (cur.annot) S.updateAnnot(cur.obj.id, patch);
   else Object.assign(cur.obj, patch);
   if (repaint) paintProps();
 }
@@ -361,18 +370,9 @@ const ALIGN_ICON = {
   left: bars([4, 10]), center: bars([7, 10]), right: bars([10, 10]), justify: bars([4, 16]),
 };
 
-let boxOpen = false;
-
 /** The box behind the text: background, border, corner, padding, shadow. */
 function boxFold(o) {
-  const d = document.createElement('details');
-  d.className = 'fold';
-  d.open = boxOpen;
-  d.addEventListener('toggle', () => { boxOpen = d.open; });
-  const sum = document.createElement('summary');
-  sum.textContent = t('prop.box');
-  d.append(sum);
-
+  const d = fold('box', t('prop.box'));
   // a border colour on its own would draw nothing, so give it a width to show
   d.append(row(t('prop.background'), swatches(COLORS, o.boxFill || 'none', v => setProp({ boxFill: v }), true)));
   d.append(row(t('prop.border'), swatches(COLORS, o.boxColor || 'none',
@@ -387,6 +387,46 @@ function boxFold(o) {
   hint.className = 'fold-hint';
   hint.textContent = t('prop.boxHint');
   d.append(hint);
+  return d;
+}
+
+/** A fold that remembers whether it was left open. */
+const foldOpen = {};
+function fold(name, label) {
+  const d = document.createElement('details');
+  d.className = 'fold';
+  d.dataset.fold = name;
+  d.open = !!foldOpen[name];
+  d.addEventListener('toggle', () => { foldOpen[name] = d.open; });
+  const sum = document.createElement('summary');
+  sum.textContent = label;
+  d.append(sum);
+  return d;
+}
+
+/** Settings that belong to whole paragraphs, not to single letters. */
+function paraFold(ps) {
+  const d = fold('para', t('prop.paragraph'));
+  d.append(row(t('prop.align'), segmented(
+    [['left', ALIGN_ICON.left, '', t('prop.alignLeft')],
+      ['center', ALIGN_ICON.center, '', t('prop.alignCenter')],
+      ['right', ALIGN_ICON.right, '', t('prop.alignRight')],
+      ['justify', ALIGN_ICON.justify, '', t('prop.alignJustify')]],
+    v => v === ps.align,
+    v => setProp({ align: v }),
+  )));
+  d.append(row(t('prop.lineHeight'), slider(0.8, 3, 0.05, ps.lh, '', (v, done) => setProp({ lh: v }, done))));
+  d.append(row(t('prop.spaceBefore'), slider(0, 40, 0.5, ps.before || 0, ' pt', (v, done) => setProp({ before: v }, done))));
+  d.append(row(t('prop.spaceAfter'), slider(0, 40, 0.5, ps.after || 0, ' pt', (v, done) => setProp({ after: v }, done))));
+  d.append(row(t('prop.indent'), slider(0, 80, 0.5, ps.indent || 0, ' pt', (v, done) => setProp({ indent: v }, done))));
+  return d;
+}
+
+/** What the letters do beyond their own colour. */
+function effectsFold(o) {
+  const d = fold('effects', t('prop.effects'));
+  d.append(row(t('prop.textShadow'), slider(0, 12, 0.5, o.tsh || 0, ' pt', (v, done) => setProp({ tsh: v }, done))));
+  d.append(row(t('prop.textShadowColour'), swatches(COLORS, o.tshColor || '#111827', v => setProp({ tshColor: v }))));
   return d;
 }
 
@@ -492,9 +532,13 @@ function paintProps() {
   const fields = FIELDS[cur.type] || [];
   const o = cur.obj;
   const shape = cur.type === 'rect' || cur.type === 'ellipse';
+  const texty = cur.annot && (cur.type === 'text' || cur.type === 'etext');
+  // a text box shows what the caret has hold of, which need not be the box style
+  const cs = texty ? V.styleHere(o) : o;
+  const ps = texty ? V.paraHere(o) : o;
 
   for (const f of fields) {
-    if (f === 'color') p.append(row(t('prop.colour'), swatches(COLORS, o.color, v => setProp({ color: v }))));
+    if (f === 'color') p.append(row(t('prop.colour'), swatches(COLORS, cs.color, v => setProp({ color: v }))));
     if (f === 'fill') {
       const list = cur.type === 'highlight' ? HIGHLIGHTS : COLORS;
       p.append(row(shape ? t('prop.fill') : t('prop.colour'),
@@ -502,37 +546,30 @@ function paintProps() {
     }
     if (f === 'width') p.append(row(t('prop.stroke'), slider(0.5, 12, 0.5, o.width, ' pt', (v, done) => setProp({ width: v }, done))));
     if (f === 'opacity') p.append(row(t('prop.opacity'), slider(0.1, 1, 0.05, o.opacity, '', (v, done) => setProp({ opacity: v }, done))));
-    if (f === 'size') p.append(row(t('prop.size'), slider(4, 72, 0.1, o.size, ' pt', (v, done) => setProp({ size: v }, done), 400)));
+    if (f === 'size') p.append(row(t('prop.size'), slider(4, 72, 0.1, cs.size, ' pt', (v, done) => setProp({ size: v }, done), 400)));
     if (f === 'face') {
       p.append(row(t('prop.style'), segmented(
         [['b', `<b>${t('prop.boldLetter')}</b>`, 'font-weight:700', t('prop.bold')],
-          ['i', `<i>${t('prop.italicLetter')}</i>`, 'font-style:italic', t('prop.italic')]],
-        v => (v === 'b' ? !!o.bold : !!o.italic),
-        v => setProp(v === 'b' ? { bold: !o.bold } : { italic: !o.italic }),
+          ['i', `<i>${t('prop.italicLetter')}</i>`, 'font-style:italic', t('prop.italic')],
+          ['u', `<u>${t('prop.underlineLetter')}</u>`, 'text-decoration:underline', t('prop.underline')]],
+        v => (v === 'b' ? !!cs.bold : v === 'i' ? !!cs.italic : !!cs.under),
+        v => setProp(v === 'b' ? { bold: !cs.bold } : v === 'i' ? { italic: !cs.italic } : { under: !cs.under }),
       )));
     }
+    if (f === 'hl') {
+      p.append(row(t('prop.highlight'),
+        swatches(HIGHLIGHTS, cs.hl || 'none', v => setProp({ hl: v === 'none' ? null : v }), true)));
+    }
+    if (f === 'para') p.append(paraFold(ps));
+    if (f === 'effects') p.append(effectsFold(o));
     if (f === 'family') {
       p.append(row(t('prop.font'), segmented(
         [['sans', 'Sans', 'font-family:ui-sans-serif,sans-serif', 'Liberation Sans, the widths of Arial'],
           ['serif', 'Serif', 'font-family:Georgia,serif', 'Liberation Serif, the widths of Times New Roman'],
           ['mono', 'Mono', 'font-family:ui-monospace,monospace', 'Liberation Mono, the widths of Courier New']],
-        v => v === (o.family || 'sans'),
+        v => v === (cs.family || 'sans'),
         v => setProp({ family: v }),
       )));
-    }
-    if (f === 'align') {
-      p.append(row(t('prop.align'), segmented(
-        [['left', ALIGN_ICON.left, '', t('prop.alignLeft')],
-          ['center', ALIGN_ICON.center, '', t('prop.alignCenter')],
-          ['right', ALIGN_ICON.right, '', t('prop.alignRight')],
-          ['justify', ALIGN_ICON.justify, '', t('prop.alignJustify')]],
-        v => v === o.align,
-        v => setProp({ align: v }),
-      )));
-    }
-    if (f === 'lh') {
-      p.append(row(t('prop.lineHeight'),
-        slider(0.8, 3, 0.05, o.lh || LINE_H, '', (v, done) => setProp({ lh: v }, done))));
     }
     // an angle belongs to one object, never to a tool that has not drawn yet
     if (f === 'angle' && cur.annot) {
@@ -540,6 +577,15 @@ function paintProps() {
         slider(0, 359, 1, o.rot || 0, ' deg', (v, done) => setProp({ rot: v }, done))));
     }
     if (f === 'box') p.append(boxFold(o));
+  }
+
+  if (texty) {
+    const r = V.textRange();
+    const held = r && r.to > r.from ? r.to - r.from : 0;
+    const reach = document.createElement('p');
+    reach.className = 'reach';
+    reach.textContent = held ? t('prop.someLetters', { n: held }) : t('prop.wholeBox');
+    p.append(reach);
   }
 
   // edit, duplicate, restack and delete live on the toolbar over the selection
@@ -631,6 +677,7 @@ S.on('doc', () => { paintChrome(); paintThumbs(); paintSide(); paintLayers(); pa
 S.on('annots', () => { paintChrome(); paintLayers(); });
 S.on('sel', () => { tabPick = null; paintSide(); paintLayers(); paintProps(); });
 S.on('tool', () => { paintRail(); paintProps(); });
+S.on('range', () => paintProps());
 S.on('history', () => paintChrome());
 S.on('zoom', () => paintChrome());
 S.on('dirty', () => { ui.saveState.hidden = false; ui.saveState.classList.remove('on'); ui.saveState.textContent = t('save.saving'); });

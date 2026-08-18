@@ -4,7 +4,7 @@
 
 import { state, srcById } from './store.js';
 import { loadScript, hexRgb, apply, turn, rotCenter } from './util.js';
-import { fontKey, loadFont, layout, measure, padBox, hasBox, boxPath } from './text.js';
+import { fontKey, loadFont, facesOf, layout, padBox, hasBox, boxPath } from './text.js';
 
 const libUrl = new URL('../../vendor/pdf-lib.min.js', import.meta.url).href;
 
@@ -23,17 +23,21 @@ export async function buildPdf() {
     srcDocs.set(s.id, await PDFDocument.load(s.bytes.slice(0), { ignoreEncryption: true }));
   }
 
+  // every face every run asks for, embedded once and measured with
   const fonts = new Map();
+  const faces = new Map();
   for (const a of state.annots) {
     if ((a.type !== 'text' && a.type !== 'etext') || !a.text.trim()) continue;
-    const key = fontKey(a);
-    if (fonts.has(key)) continue;
-    const f = await loadFont(key);          // also pulls in fontkit
-    out.registerFontkit(window.fontkit);
-    let embedded;
-    try { embedded = await out.embedFont(f.bytes, { subset: true }); }
-    catch { embedded = await out.embedFont(f.bytes, { subset: false }); }
-    fonts.set(key, { f, embedded });
+    for (const key of facesOf(a)) {
+      if (fonts.has(key)) continue;
+      const f = await loadFont(key);        // also pulls in fontkit
+      out.registerFontkit(window.fontkit);
+      let embedded;
+      try { embedded = await out.embedFont(f.bytes, { subset: true }); }
+      catch { embedded = await out.embedFont(f.bytes, { subset: false }); }
+      fonts.set(key, embedded);
+      faces.set(key, f);
+    }
   }
 
   const images = new Map();
@@ -61,7 +65,7 @@ export async function buildPdf() {
       const spun = a.rot || 0;
       const turned = spun ? degrees(base - spun) : rotate;
       const laid = (a.type === 'text' || a.type === 'etext') && a.text.trim()
-        ? layout(a, fonts.get(fontKey(a)).f) : null;
+        ? layout(a, faces) : null;
       const height = laid ? laid.height : 0;
       const [cx, cy] = rotCenter(a, height);
       const P = (x, y) => { const [tx, ty] = turn(cx, cy, x, y, spun); return U(tx, ty); };
@@ -101,12 +105,10 @@ export async function buildPdf() {
           page.drawRectangle({ x: anchor.x, y: anchor.y, width: a.mw, height: a.mh, rotate, color: C(a.bg) });
         }
         if (!a.text.trim()) continue;
-        const { f, embedded } = fonts.get(fontKey(a));
         const { lines } = laid;
         const b = padBox(a, height);
         const boxed = hasBox(a);
         const off = a.shadow || 0;
-        const shade = a.shadowColor || '#111827';
 
         // the same box the preview draws: a path when it is rounded, a plain
         // rectangle when it is not
@@ -129,31 +131,47 @@ export async function buildPdf() {
             borderWidth: border ? a.boxWidth : 0,
           });
         };
-        if (off && boxed) drawBox(off, off, shade, null);
+        if (boxed && off) drawBox(off, off, a.shadowColor || '#111827', null);
         if (boxed) {
           drawBox(0, 0,
             a.boxFill && a.boxFill !== 'none' ? a.boxFill : null,
             a.boxWidth && a.boxColor && a.boxColor !== 'none' ? a.boxColor : null);
         }
 
-        const passes = off && !boxed
-          ? [{ fill: shade, shift: off }, { fill: a.color, shift: 0 }]
-          : [{ fill: a.color, shift: 0 }];
+        const each = fn => { for (const ln of lines) for (const pc of ln.pieces) fn(pc, ln); };
+
+        each((pc, ln) => {
+          if (!pc.style.hl) return;
+          const at = P(pc.x, ln.y - ln.desc);
+          page.drawRectangle({
+            x: at.x, y: at.y, width: pc.w, height: ln.asc - ln.desc,
+            rotate: turned, color: C(pc.style.hl),
+          });
+        });
+
+        const passes = a.tsh
+          ? [{ shift: a.tsh, fill: a.tshColor || '#111827' }, { shift: 0, fill: null }]
+          : [{ shift: 0, fill: null }];
         for (const pass of passes) {
-          for (const ln of lines) {
-            if (!ln.text.trim()) continue;
-            const draw = (str, x, y) => {
-              const at = P(x + pass.shift, y + pass.shift);
-              page.drawText(str, { x: at.x, y: at.y, size: a.size, font: embedded, color: C(pass.fill), rotate: turned });
-            };
-            if (!ln.ws) { draw(ln.text, ln.x, ln.y); continue; }
-            let x = ln.x;                                  // widened gaps, so place each word
-            for (const word of ln.text.split(' ')) {
-              if (word) draw(word, x, ln.y);
-              x += measure(f, word + ' ', a.size) + ln.ws;
-            }
-          }
+          each((pc, ln) => {
+            if (!pc.text.trim()) return;
+            const at = P(pc.x + pass.shift, ln.y + pass.shift);
+            page.drawText(pc.text, {
+              x: at.x, y: at.y, size: pc.style.size, font: fonts.get(fontKey(pc.style)),
+              color: C(pass.fill || pc.style.color), rotate: turned,
+            });
+          });
         }
+
+        each((pc, ln) => {
+          if (!pc.style.under || !pc.text.trim()) return;
+          const thick = Math.max(0.4, pc.style.size * 0.055);
+          const at = P(pc.x, ln.y + pc.style.size * 0.12 + thick);
+          page.drawRectangle({
+            x: at.x, y: at.y, width: pc.w, height: thick,
+            rotate: turned, color: C(pc.style.color),
+          });
+        });
       }
     }
   }

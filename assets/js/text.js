@@ -124,64 +124,244 @@ export async function matchFace(family, str, size, width) {
   }
 }
 
-function breakWord(f, word, size, maxW) {
+/* ---- styled runs ------------------------------------------------------ */
+// The characters live in a.text, a plain string, so the editor stays a textarea
+// and saved work keeps loading. a.runs styles stretches of it, a.paras styles
+// whole paragraphs, and whatever either of them leaves out falls back to the
+// settings on the annotation itself.
+
+export const CHAR_KEYS = ['family', 'bold', 'italic', 'size', 'color', 'hl', 'under'];
+export const PARA_KEYS = ['align', 'lh', 'before', 'after', 'indent'];
+
+/** What a run wears when it says nothing of its own. */
+export const baseStyle = a => ({
+  family: FAMILIES.includes(a.family) ? a.family : 'sans',
+  bold: !!a.bold, italic: !!a.italic, size: a.size, color: a.color,
+  hl: a.hl || null, under: !!a.under,
+});
+
+const dressed = (base, r) => {
+  const out = { ...base };
+  for (const k of CHAR_KEYS) if (r[k] !== undefined) out[k] = r[k];
+  return out;
+};
+
+export const sameStyle = (x, y) => CHAR_KEYS.every(k => (x[k] || null) === (y[k] || null));
+
+/** The text as styled spans. Without runs the whole string wears the base. */
+export function spansOf(a) {
+  const base = baseStyle(a);
+  const text = String(a.text || '');
+  if (!a.runs || !a.runs.length) return [{ text, style: base }];
   const out = [];
-  let cur = '';
-  for (const ch of word) {
-    if (cur && measure(f, cur + ch, size) > maxW) { out.push(cur); cur = ch; }
-    else cur += ch;
+  let at = 0;
+  for (const r of a.runs) {
+    if (at >= text.length) break;
+    const n = Math.min(r.n, text.length - at);
+    if (n > 0) out.push({ text: text.slice(at, at + n), style: dressed(base, r) });
+    at += n;
   }
-  if (cur) out.push(cur);
+  if (at < text.length) out.push({ text: text.slice(at), style: base });
   return out;
 }
 
-/** Greedy word wrap inside maxW. Honours explicit newlines. */
-export function wrap(f, text, size, maxW) {
-  const lines = [];
-  for (const para of String(text).split('\n')) {
-    let cur = '';
-    for (const word of para.split(' ')) {
-      const next = cur ? cur + ' ' + word : word;
-      if (measure(f, next, size) <= maxW) { cur = next; continue; }
-      if (cur) { lines.push(cur); cur = ''; }
-      if (measure(f, word, size) > maxW) {
-        const parts = breakWord(f, word, size, maxW);
-        lines.push(...parts.slice(0, -1));
-        cur = parts[parts.length - 1] || '';
-      } else {
-        cur = word;
-      }
-    }
-    lines.push(cur);
+/** The style one character wears, which is what the panel shows. */
+export function styleAt(a, at) {
+  let seen = 0;
+  for (const sp of spansOf(a)) {
+    seen += sp.text.length;
+    if (at < seen) return sp.style;
   }
+  return baseStyle(a);
+}
+
+/** Paragraph settings: the annotation's own unless that paragraph says otherwise. */
+export function paraStyle(a, i) {
+  const base = { align: a.align || 'left', lh: a.lh || LINE_H, before: 0, after: 0, indent: 0 };
+  const own = a.paras && a.paras[i];
+  if (!own) return base;
+  const out = { ...base };
+  for (const k of PARA_KEYS) if (own[k] !== undefined) out[k] = own[k];
+  return out;
+}
+
+/** Every face this annotation draws with. */
+export const facesOf = a => [...new Set(spansOf(a).map(sp => fontKey(sp.style)))];
+
+/** Those faces, ready to measure with, or null while any is still loading. */
+export function readyFaces(a) {
+  const map = new Map();
+  for (const key of facesOf(a)) {
+    const f = fontReady(key);
+    if (!f) return null;
+    map.set(key, f);
+  }
+  return map;
+}
+
+/** Load whatever this annotation still needs. */
+export const loadFaces = a => Promise.all(facesOf(a).map(loadFont));
+
+/* ---- wrapping --------------------------------------------------------- */
+const faceOf = (faces, style) => faces.get(fontKey(style));
+const widthOf = (faces, frag) => measure(faceOf(faces, frag.style), frag.text, frag.style.size);
+const wordWidth = (faces, w) => w.frags.reduce((n, fr) => n + widthOf(faces, fr), 0);
+const charCount = w => w.frags.reduce((n, fr) => n + fr.text.length, 0);
+
+/** Split a paragraph's spans into words and the gaps between them. */
+function words(spans) {
+  const out = [];
+  let cur = null;
+  for (const sp of spans) {
+    for (const part of sp.text.split(/(\s+)/)) {
+      if (!part) continue;
+      if (/^\s+$/.test(part)) {
+        out.push({ gap: true, frags: [{ text: part, style: sp.style }] });
+        cur = null;
+        continue;
+      }
+      if (!cur) { cur = { frags: [] }; out.push(cur); }
+      cur.frags.push({ text: part, style: sp.style });
+    }
+  }
+  return out;
+}
+
+/** Cut a word after n characters, each half keeping its fragments' styles. */
+function splitWord(word, n) {
+  const head = [], tail = [];
+  let seen = 0;
+  for (const fr of word.frags) {
+    const start = seen, end = seen + fr.text.length;
+    if (end <= n) head.push(fr);
+    else if (start >= n) tail.push(fr);
+    else {
+      head.push({ text: fr.text.slice(0, n - start), style: fr.style });
+      tail.push({ text: fr.text.slice(n - start), style: fr.style });
+    }
+    seen = end;
+  }
+  return [{ frags: head }, { frags: tail }];
+}
+
+/** A word wider than the column is cut where it stops fitting. */
+function breakWord(faces, word, maxW) {
+  const out = [];
+  let rest = word;
+  while (charCount(rest) > 1 && wordWidth(faces, rest) > maxW) {
+    let n = 1;
+    while (n < charCount(rest) && wordWidth(faces, splitWord(rest, n + 1)[0]) <= maxW) n++;
+    const [head, tail] = splitWord(rest, n);
+    out.push(head);
+    rest = tail;
+  }
+  out.push(rest);
+  return out;
+}
+
+/** Greedy wrap of one paragraph into lines of words and gaps. */
+function wrapPara(items, faces, maxW, indent) {
+  const lines = [];
+  let cur = [], w = 0, gap = null;
+  const room = () => maxW - (lines.length === 0 ? indent : 0);
+  const flush = () => { lines.push({ items: cur, w }); cur = []; w = 0; gap = null; };
+
+  for (const it of items) {
+    if (it.gap) { gap = it; continue; }
+    const gw = gap ? wordWidth(faces, gap) : 0;
+    const ww = wordWidth(faces, it);
+    if (cur.length && w + gw + ww > room()) flush();      // the break eats the gap
+    if (cur.length && gap) { cur.push(gap); w += gw; }
+    gap = null;
+    if (!cur.length && ww > room()) {
+      const parts = breakWord(faces, it, room());
+      for (const part of parts.slice(0, -1)) { cur.push(part); w += wordWidth(faces, part); flush(); }
+      const last = parts[parts.length - 1];
+      cur.push(last);
+      w += wordWidth(faces, last);
+      continue;
+    }
+    cur.push(it);
+    w += ww;
+  }
+  flush();
   return lines;
 }
 
-/**
- * Lay a text annotation out in page display space.
- * Returns {lines:[{text,x,y}], height} where y is the baseline.
- */
-export function layout(a, f) {
-  const size = a.size;
-  const lh = size * (a.lh || LINE_H);
-  const asc = (f.ascent / f.upem) * size;
-  const lines = wrap(f, a.text, size, a.w);
-  let widest = 0;
-  const out = lines.map((text, i) => {
-    const w = measure(f, text, size);
-    widest = Math.max(widest, w);
-    // justified copy widens the gaps, and leaves the closing line alone
-    let ws = 0;
-    if (a.align === 'justify' && i < lines.length - 1 && w < a.w) {
-      const gaps = (text.match(/ /g) || []).length;
-      if (gaps) ws = (a.w - w) / gaps;
+/** Text that shares a style and sits shoulder to shoulder draws as one piece. */
+function mergePieces(list) {
+  const out = [];
+  for (const p of list) {
+    const last = out[out.length - 1];
+    if (last && sameStyle(last.style, p.style) && Math.abs(last.x + last.w - p.x) < 0.02) {
+      last.text += p.text;
+      last.w += p.w;
+    } else {
+      out.push({ ...p });
     }
-    const x = a.align === 'center' ? a.x + (a.w - w) / 2
-      : a.align === 'right' ? a.x + a.w - w
-        : a.x;
-    return { text, x, y: a.y + asc + i * lh, ws };
+  }
+  return out;
+}
+
+/** The text split on newlines, each paragraph keeping its spans. */
+function paragraphs(a) {
+  const out = [[]];
+  for (const sp of spansOf(a)) {
+    sp.text.split('\n').forEach((t, i) => {
+      if (i) out.push([]);
+      if (t) out[out.length - 1].push({ text: t, style: sp.style });
+    });
+  }
+  return out;
+}
+
+/**
+ * Lay a text annotation out in page display space. Returns
+ * {lines:[{y, asc, desc, height, pieces:[{text, x, w, style}]}], height, width}
+ * where y is the baseline. faces is the map readyFaces() hands back.
+ */
+export function layout(a, faces) {
+  const out = [];
+  let top = a.y, widest = 0;
+
+  paragraphs(a).forEach((spans, pi) => {
+    const ps = paraStyle(a, pi);
+    const items = words(spans.length ? spans : [{ text: '', style: baseStyle(a) }]);
+    const lines = wrapPara(items, faces, a.w, ps.indent);
+    top += ps.before;
+
+    lines.forEach((ln, li) => {
+      const seen = ln.items.flatMap(it => it.frags.map(fr => fr.style));
+      const styles = seen.length ? seen : [baseStyle(a)];
+      const big = Math.max(...styles.map(st => st.size));
+      const asc = Math.max(...styles.map(st => ascentOf(faceOf(faces, st), st.size)));
+      const desc = Math.min(...styles.map(st => descentOf(faceOf(faces, st), st.size)));
+      const first = li === 0 ? ps.indent : 0;
+      const room = a.w - first;
+      const gaps = ln.items.filter(it => it.gap).length;
+      // justified copy widens the gaps, and leaves the closing line alone
+      const slack = ps.align === 'justify' && li < lines.length - 1 && ln.w < room ? room - ln.w : 0;
+      const extra = gaps ? slack / gaps : 0;
+      let x = a.x + first
+        + (ps.align === 'center' ? (room - ln.w) / 2 : ps.align === 'right' ? room - ln.w : 0);
+
+      const pieces = [];
+      for (const it of ln.items) {
+        for (const fr of it.frags) {
+          const w = widthOf(faces, fr);
+          pieces.push({ text: fr.text, x, w, style: fr.style });
+          x += w;
+        }
+        if (it.gap) x += extra;
+      }
+      widest = Math.max(widest, ln.w + slack + first);
+      out.push({ y: top + asc, asc, desc, height: big * ps.lh, pieces: mergePieces(pieces) });
+      top += big * ps.lh;
+    });
+    top += ps.after;
   });
-  return { lines: out, height: Math.max(lh, lines.length * lh), width: widest };
+
+  return { lines: out, height: Math.max(a.size * (a.lh || LINE_H), top - a.y), width: widest };
 }
 
 /** The styled box behind a text annotation: the wrapping column plus padding. */
@@ -210,3 +390,6 @@ export function boxPath(x, y, w, h, r) {
 
 /** Distance from the top of a text box to its first baseline. */
 export const ascentOf = (f, size) => (f.ascent / f.upem) * size;
+
+/** How far the letters hang below it, negative as the font reports it. */
+export const descentOf = (f, size) => (f.descent / f.upem) * size;

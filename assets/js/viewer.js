@@ -1,11 +1,12 @@
 // Page rendering (pdf.js canvas), the SVG annotation layer, the existing-text
 // layer and all pointer work.
 
-import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, discardAnnot, removeAnnot, duplicateAnnot, restackAnnot, rotatePage, deletePage, duplicatePage, touch } from './store.js';
+import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, updateAnnot, discardAnnot, removeAnnot, duplicateAnnot, restackAnnot, rotatePage, deletePage, duplicatePage, touch } from './store.js';
 import { uid, clamp, invert, mul, turn, canTurn, rotCenter } from './util.js';
 import { ICON } from './icons.js';
 import { openMenu, closeMenu, onLongPress } from './menu.js';
-import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf, matchFace, warmFaces, padBox, hasBox, boxPath } from './text.js';
+import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, loadFaces, readyFaces, layout, ascentOf, styleAt, paraStyle, padBox, hasBox, boxPath, matchFace, warmFaces } from './text.js';
+import { styleRun, styleParas, paraRange, reflowRuns } from './runs.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -76,10 +77,10 @@ function penPath(a) {
   return a.pts.map((pt, i) => (i ? 'L' : 'M') + pt[0].toFixed(2) + ' ' + pt[1].toFixed(2)).join(' ');
 }
 
-/** How tall a text box lays out, with a guess while its face is still loading. */
+/** How tall a text box lays out, with a guess while a face is still loading. */
 function laidHeight(a) {
-  const f = fontReady(fontKey(a));
-  return f ? layout(a, f).height : a.size * LINE_H;
+  const faces = readyFaces(a);
+  return faces ? layout(a, faces).height : a.size * LINE_H;
 }
 
 /** The middle of the drawn geometry, which is what a rotation turns about. */
@@ -117,32 +118,36 @@ function headPath(a) {
   return `M${lx} ${ly} L${a.x2} ${a.y2} L${rx} ${ry}`;
 }
 
-/** One laid-out line, optionally offset and recoloured for the shadow pass. */
-function lineEl(a, key, ln, fill, off = 0) {
+/** One stretch of same-styled text, offset and recoloured for a shadow pass. */
+function pieceEl(pc, ln, off, fill) {
+  const key = fontKey(pc.style);
   const t = el('text', {
-    x: ln.x + off, y: ln.y + off, fill, 'font-family': cssFamily(key), 'font-size': a.size,
-    'font-weight': a.bold ? 700 : 400, 'font-style': a.italic ? 'italic' : 'normal',
-    'word-spacing': ln.ws || null,
+    x: pc.x + off, y: ln.y + off, fill: fill || pc.style.color,
+    'font-family': cssFamily(key), 'font-size': pc.style.size,
+    'font-weight': pc.style.bold ? 700 : 400,
+    'font-style': pc.style.italic ? 'italic' : 'normal',
     'pointer-events': 'none', 'xml:space': 'preserve',
   });
-  t.textContent = ln.text;
+  t.textContent = pc.text;
   return t;
 }
 
+const eachPiece = (lines, fn) => lines.forEach(ln => ln.pieces.forEach(pc => fn(pc, ln)));
+
 /** Shared by the plain text box and the replaced-text annotation. */
 function appendText(g, a) {
-  const key = fontKey(a);
-  const f = fontReady(key);
-  if (!f) { loadFont(key).then(() => emit('annots', a.page)); return; }
-  const { lines, height, width } = layout(a, f);
+  const faces = readyFaces(a);
+  if (!faces) { loadFaces(a).then(() => emit('annots', a.page)); return; }
+  const { lines, height, width } = layout(a, faces);
   const b = padBox(a, height);
   const boxed = hasBox(a);
   const off = a.shadow || 0;
-  const shade = a.shadowColor || '#111827';
 
-  // a shadow follows the box when there is one, the letters when there is not
-  if (off && boxed) {
-    g.append(el('path', { d: boxPath(b.x + off, b.y + off, b.w, b.h, a.radius), fill: shade, stroke: 'none', 'pointer-events': 'none' }));
+  if (boxed && off) {
+    g.append(el('path', {
+      d: boxPath(b.x + off, b.y + off, b.w, b.h, a.radius),
+      fill: a.shadowColor || '#111827', stroke: 'none', 'pointer-events': 'none',
+    }));
   }
   if (boxed) {
     g.append(el('path', {
@@ -152,11 +157,30 @@ function appendText(g, a) {
       'stroke-width': a.boxWidth || 0, 'pointer-events': 'all',
     }));
   }
-  if (off && !boxed) for (const ln of lines) if (ln.text) g.append(lineEl(a, key, ln, shade, off));
 
-  const left = lines.length ? Math.min(...lines.map(l => l.x)) : a.x;
+  // the colour behind the letters sits under everything the letters do
+  eachPiece(lines, (pc, ln) => {
+    if (!pc.style.hl) return;
+    g.append(el('rect', {
+      x: pc.x, y: ln.y - ln.asc, width: pc.w, height: ln.asc - ln.desc,
+      fill: pc.style.hl, stroke: 'none', 'pointer-events': 'none',
+    }));
+  });
+
+  const left = lines.length ? Math.min(...lines.map(ln => (ln.pieces[0] ? ln.pieces[0].x : a.x))) : a.x;
   g.append(el('rect', { class: 'hit', x: left, y: a.y, width: Math.max(width, 12), height, 'pointer-events': 'all', stroke: 'none' }));
-  for (const ln of lines) if (ln.text) g.append(lineEl(a, key, ln, a.color));
+
+  const tsh = a.tsh || 0;
+  if (tsh) eachPiece(lines, (pc, ln) => { if (pc.text.trim()) g.append(pieceEl(pc, ln, tsh, a.tshColor || '#111827')); });
+  eachPiece(lines, (pc, ln) => { if (pc.text.trim()) g.append(pieceEl(pc, ln, 0, null)); });
+  eachPiece(lines, (pc, ln) => {
+    if (!pc.style.under || !pc.text.trim()) return;
+    g.append(el('rect', {
+      x: pc.x, y: ln.y + pc.style.size * 0.12, width: pc.w,
+      height: Math.max(0.4, pc.style.size * 0.055),
+      fill: pc.style.color, stroke: 'none', 'pointer-events': 'none',
+    }));
+  });
 }
 
 function drawAnnot(a) {
@@ -462,6 +486,63 @@ function drawSelection(p, host) {
     sel.append(el('circle', { class: 'h spinner', 'data-h': 'spin', cx: mid, cy: arm, r: s * 0.62 }));
   }
   host.append(sel);
+}
+
+/* ---- the stretch picked out in the editor ----------------------------- */
+// Character styling needs to know what the caret has hold of. The editor is a
+// textarea, so the stretch is just its selection, and it outlives the editor so
+// the panel can keep restyling it after a control has taken the focus.
+let range = null;         // {id, from, to}
+
+export const textRange = () => (range && annotById(range.id) ? range : null);
+const rangeOf = a => (range && range.id === a.id ? range : { from: 0, to: 0 });
+
+function readRange(ta, a) {
+  const next = { id: a.id, from: ta.selectionStart, to: ta.selectionEnd };
+  if (range && range.id === next.id && range.from === next.from && range.to === next.to) return;
+  range = next;
+  emit('range');
+}
+
+/** The style the panel should show: what the caret is sitting on. */
+export const styleHere = a => styleAt(a, rangeOf(a).from);
+
+/** The paragraph settings of the paragraph the caret is in. */
+export function paraHere(a) {
+  const r = rangeOf(a);
+  return paraStyle(a, paraRange(a.text, r.from, r.to)[0]);
+}
+
+/** Restyle the picked-out characters, or the whole box when none are. */
+export function styleText(a, patch) {
+  const r = rangeOf(a);
+  if (r.to > r.from) {
+    updateAnnot(a.id, { runs: styleRun(a, r.from, r.to, patch) });
+  } else {
+    // nothing picked out, so the box's own style moves and the runs follow it
+    const next = { ...a, ...patch };
+    updateAnnot(a.id, { ...patch, runs: styleRun(next, 0, 0, patch) });
+  }
+  keepEditing();
+}
+
+/** Restyle the paragraphs the caret touches, or all of them when it is idle. */
+export function styleParagraph(a, patch) {
+  const r = rangeOf(a);
+  if (r.to > r.from || r.from > 0) updateAnnot(a.id, { paras: styleParas(a, r.from, r.to, patch) });
+  else updateAnnot(a.id, { ...patch, paras: styleParas({ ...a, ...patch }, 0, 0, patch) });
+  keepEditing();
+}
+
+/** Put the caret back where it was, so a second style lands on the same words. */
+function keepEditing() {
+  if (!editor || !range || editor.a.id !== range.id) return;
+  const { ta } = editor;
+  requestAnimationFrame(() => {
+    if (!editor || editor.ta !== ta) return;
+    ta.focus();
+    ta.setSelectionRange(range.from, range.to);
+  });
 }
 
 /* ---- selection toolbar ------------------------------------------------ */
@@ -1144,8 +1225,8 @@ async function placeImage(p, pt) {
 export function openEditor(p, a, isNew) {
   closeEditor(false);
   const rec = wraps.get(p.id);
-  const key = fontKey(a);
-  loadFont(key).then(() => {
+  loadFaces(a).then(() => {
+    const key = fontKey(a);
     const m = rec.g.getScreenCTM();
     const ta = document.createElement('textarea');
     ta.className = 'editbox';
@@ -1168,11 +1249,21 @@ export function openEditor(p, a, isNew) {
     st.textAlign = a.align;
     document.body.append(ta);
     editor = { ta, a, p, isNew, was: a.text };
+    range = { id: a.id, from: 0, to: 0 };
     updateBar();                                  // the box is being typed in, not handled
 
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(a.size * (a.lh || LINE_H), ta.scrollHeight) + 'px'; };
     grow();
-    ta.addEventListener('input', () => { a.text = ta.value; grow(); });
+    ta.addEventListener('input', () => {
+      const before = a.text;
+      a.text = ta.value;
+      if (a.runs) a.runs = reflowRuns(a.runs, before, a.text);
+      readRange(ta, a);
+      grow();
+    });
+    for (const evt of ['select', 'keyup', 'mouseup', 'pointerup']) {
+      ta.addEventListener(evt, () => readRange(ta, a));
+    }
     ta.addEventListener('keydown', e => {
       if (e.key === 'Escape') { e.preventDefault(); closeEditor(true, true); }
       e.stopPropagation();
@@ -1184,7 +1275,13 @@ export function openEditor(p, a, isNew) {
       if (editor && editor.ta === ta) {
         ta.focus();
         if (isNew) ta.select();
-        ta.addEventListener('blur', () => closeEditor(true));
+        readRange(ta, a);
+        ta.addEventListener('blur', ev => {
+          // reaching for a property keeps the edit alive, and the words held
+          const to = ev.relatedTarget;
+          if (to && to.closest && to.closest('.props, .selbar, .menu')) return;
+          closeEditor(true);
+        });
       }
     });
   });
@@ -1224,7 +1321,10 @@ export function init(viewportEl) {
   viewport.addEventListener('pointercancel', pinchUp, { capture: true });
   on('doc', () => { buildAll(); if (state.fit) setZoom(fitZoom(), true); });
   on('annots', id => paintOverlay(id));
-  on('sel', () => state.pages.forEach(p => paintOverlay(p.id)));
+  on('sel', () => {
+    if (range && range.id !== state.sel) range = null;   // words held in another box
+    state.pages.forEach(p => paintOverlay(p.id));
+  });
   on('tool', () => {
     closeEditor(true);
     wraps.forEach(r => { r.wrap.dataset.tool = state.tool; });

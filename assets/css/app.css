@@ -233,6 +233,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .layer-kind{flex:none;color:var(--fg-mute);text-transform:uppercase;font-size:10px;letter-spacing:.06em}
 .layer-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-dim)}
 .layers-empty,.layers-hint{margin:6px 2px 0;font-size:11px;color:var(--fg-mute);line-height:1.4}
+.reach{margin:2px 2px 10px;font-size:11px;color:var(--fg-mute);line-height:1.4}
 .tipbox{margin-top:auto;padding-top:12px;font-size:12px;color:var(--fg-mute);line-height:1.5;border-top:1px solid var(--line)}
 
 /* ---- context menu ---------------------------------------------------- */
