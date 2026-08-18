@@ -188,20 +188,28 @@ function target() {
   return a ? { obj: a, type: a.type, annot: true } : { obj: S.state.style[S.state.tool], type: S.state.tool, annot: false };
 }
 
-function setProp(patch) {
+// repaint rebuilds the panel, so a control still under the pointer asks not to
+function setProp(patch, repaint = true) {
   const cur = target();
   if (cur.annot) S.updateAnnot(cur.obj.id, patch);
   else Object.assign(cur.obj, patch);
-  paintProps();
+  if (repaint) paintProps();
 }
+
+let rowSeq = 0;
 
 function row(labelText, node) {
   const r = document.createElement('div');
   r.className = 'row';
   if (labelText) {
     const l = document.createElement('label');
+    l.id = `rowlab${++rowSeq}`;
     l.textContent = labelText;
     r.append(l);
+    // the label is visual only, so name the controls it describes
+    for (const c of node.querySelectorAll('input,button')) {
+      if (!c.hasAttribute('aria-label')) c.setAttribute('aria-labelledby', l.id);
+    }
   }
   r.append(node);
   return r;
@@ -233,16 +241,49 @@ function swatches(list, current, onPick, withNone) {
   return wrap;
 }
 
-function slider(min, max, step, value, unit, onInput) {
+const trim = v => String(Math.round(v * 100) / 100);
+
+/**
+ * Coarse drag plus an exact number to type into. onInput(value, settled) is
+ * called on every change; settled is true only when the gesture is over, so a
+ * live drag never triggers a panel rebuild under the pointer. The slider covers
+ * the everyday range; hardMax lets the typed value go past it.
+ */
+function slider(min, max, step, value, unit, onInput, hardMax = max) {
   const wrap = document.createElement('div');
   wrap.className = 'num';
+  const clamp = v => Math.min(hardMax, Math.max(min, v));
+
   const r = document.createElement('input');
   r.type = 'range';
-  r.min = min; r.max = max; r.step = step; r.value = value;
-  const out = document.createElement('output');
-  out.textContent = value + unit;
-  r.oninput = () => { out.textContent = r.value + unit; onInput(parseFloat(r.value)); };
-  wrap.append(r, out);
+  r.min = min; r.max = max; r.step = step;
+  r.value = Math.min(max, Math.max(min, value));   // pins rather than misreports
+
+  const n = document.createElement('input');
+  n.type = 'number';
+  n.min = min; n.max = hardMax; n.step = step; n.value = trim(value);
+
+  r.oninput = () => { n.value = trim(+r.value); onInput(+r.value, false); };
+  r.onchange = () => onInput(+r.value, true);
+  n.oninput = () => {
+    const v = parseFloat(n.value);
+    if (!Number.isFinite(v)) return;
+    r.value = clamp(v);
+    onInput(clamp(v), false);
+  };
+  n.onchange = () => {
+    const v = clamp(Number.isFinite(parseFloat(n.value)) ? parseFloat(n.value) : min);
+    n.value = trim(v);
+    onInput(v, true);
+  };
+
+  wrap.append(r, n);
+  if (unit.trim()) {
+    const u = document.createElement('span');
+    u.className = 'unit';
+    u.textContent = unit.trim();
+    wrap.append(u);
+  }
   return wrap;
 }
 
@@ -282,9 +323,9 @@ function paintProps() {
       p.append(row(shape ? t('prop.fill') : t('prop.colour'),
         swatches(list, o.fill, v => setProp({ fill: v }), shape)));
     }
-    if (f === 'width') p.append(row(t('prop.stroke'), slider(0.5, 12, 0.5, o.width, ' pt', v => setProp({ width: v }))));
-    if (f === 'opacity') p.append(row(t('prop.opacity'), slider(0.1, 1, 0.05, o.opacity, '', v => setProp({ opacity: v }))));
-    if (f === 'size') p.append(row(t('prop.size'), slider(6, 72, 1, o.size, ' pt', v => setProp({ size: v }))));
+    if (f === 'width') p.append(row(t('prop.stroke'), slider(0.5, 12, 0.5, o.width, ' pt', (v, done) => setProp({ width: v }, done))));
+    if (f === 'opacity') p.append(row(t('prop.opacity'), slider(0.1, 1, 0.05, o.opacity, '', (v, done) => setProp({ opacity: v }, done))));
+    if (f === 'size') p.append(row(t('prop.size'), slider(4, 72, 0.1, o.size, ' pt', (v, done) => setProp({ size: v }, done), 400)));
     if (f === 'face') {
       p.append(row(t('prop.style'), segmented(
         [['b', `<b>${t('prop.boldLetter')}</b>`, 'font-weight:700', t('prop.bold')],

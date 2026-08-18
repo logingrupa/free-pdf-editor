@@ -422,6 +422,14 @@ const local = (rec, ev) => {
   return { x: pt.x, y: pt.y };
 };
 
+/** Run fn at most once per frame. Pointer events outpace paints. */
+function onFrame(fn) {
+  let id = 0;
+  const run = () => { if (!id) id = requestAnimationFrame(() => { id = 0; fn(); }); };
+  run.cancel = () => { if (id) { cancelAnimationFrame(id); id = 0; } };
+  return run;
+}
+
 const styleFor = tool => ({ ...state.style[tool] });
 
 function onDown(ev, p) {
@@ -478,14 +486,19 @@ function onDown(ev, p) {
   paintOverlay(p.id);
   let node = rec.g.querySelector(`[data-id="${a.id}"]`);
 
-  const move = e => {
-    extendAnnot(a, local(rec, e));
+  // every point is kept, only the redraw waits for the frame
+  const redraw = onFrame(() => {
     const fresh = drawAnnot(a);
     node.replaceWith(fresh);
     node = fresh;
+  });
+  const move = e => {
+    extendAnnot(a, local(rec, e));
+    redraw();
   };
   const up = () => {
     endGesture = null;
+    redraw.cancel();
     rec.svg.removeEventListener('pointermove', move);
     rec.svg.removeEventListener('pointerup', up);
     rec.svg.removeEventListener('pointercancel', up);
@@ -613,33 +626,59 @@ function pinchUp(ev) {
   setZoom(state.zoom);
 }
 
+/** Offset an annotation by a page-space delta, from a pre-drag snapshot. */
+function shift(a, from, dx, dy) {
+  if (a.type === 'pen') a.pts = from.pts.map(pt => [pt[0] + dx, pt[1] + dy]);
+  else if (a.type === 'arrow') { a.x1 = from.x1 + dx; a.y1 = from.y1 + dy; a.x2 = from.x2 + dx; a.y2 = from.y2 + dy; }
+  else { a.x = from.x + dx; a.y = from.y + dy; }
+  if (a.type === 'etext') { a.mx = from.mx + dx; a.my = from.my + dy; }
+}
+
+// A move is a pure translation, so the drag only transforms the existing nodes
+// and the model is written once on release. Rebuilding the overlay per event
+// re-ran the text layout for every annotation on the page.
 function startMove(ev, p, a) {
   const rec = wraps.get(p.id);
-  const start = local(rec, ev);
+  const m = rec.g.getScreenCTM();          // scrolling shifts e and f, not a and d
+  const sx = m.a || 1, sy = m.d || 1;
   const from = JSON.parse(JSON.stringify(a));
-  let moved = false;
+  let node = null, sel = null, moved = false, dx = 0, dy = 0;
+
+  const live = () => {
+    if (!node || !node.isConnected) node = rec.g.querySelector(`[data-id="${a.id}"]`);
+    if (!sel || !sel.isConnected) sel = rec.g.querySelector('.sel');
+    return [node, sel];
+  };
+  const paint = onFrame(() => {
+    const tr = `translate(${dx} ${dy})`;
+    for (const n of live()) if (n) n.setAttribute('transform', tr);
+  });
+
   rec.svg.setPointerCapture(ev.pointerId);
 
   const move = e => {
-    const q = local(rec, e);
-    const dx = q.x - start.x, dy = q.y - start.y;
-    if (!moved && Math.hypot(dx, dy) < 1) return;
+    if (!moved && Math.hypot(e.clientX - ev.clientX, e.clientY - ev.clientY) < 3) return;
     if (!moved) { moved = true; commit(); }
-    if (a.type === 'pen') a.pts = from.pts.map(pt => [pt[0] + dx, pt[1] + dy]);
-    else if (a.type === 'arrow') { a.x1 = from.x1 + dx; a.y1 = from.y1 + dy; a.x2 = from.x2 + dx; a.y2 = from.y2 + dy; }
-    else { a.x = from.x + dx; a.y = from.y + dy; }
-    if (a.type === 'etext') { a.mx = from.mx + dx; a.my = from.my + dy; }
-    paintOverlay(p.id);
+    dx = (e.clientX - ev.clientX) / sx;
+    dy = (e.clientY - ev.clientY) / sy;
+    paint();
   };
   const up = () => {
     endGesture = null;
+    paint.cancel();
     rec.svg.removeEventListener('pointermove', move);
     rec.svg.removeEventListener('pointerup', up);
-    if (moved) touch(p.id);
+    rec.svg.removeEventListener('pointercancel', up);
+    if (!moved) return;
+    for (const n of live()) if (n) n.removeAttribute('transform');
+    shift(a, from, dx, dy);
+    touch(p.id);
+    paintOverlay(p.id);
   };
   endGesture = up;
   rec.svg.addEventListener('pointermove', move);
   rec.svg.addEventListener('pointerup', up);
+  rec.svg.addEventListener('pointercancel', up);
 }
 
 function startResize(ev, p, a, h) {
@@ -648,6 +687,7 @@ function startResize(ev, p, a, h) {
   const from = JSON.parse(JSON.stringify(a));
   let moved = false;
   rec.svg.setPointerCapture(ev.pointerId);
+  const repaint = onFrame(() => paintOverlay(p.id));
 
   const move = e => {
     const q = local(rec, e);
@@ -664,17 +704,20 @@ function startResize(ev, p, a, h) {
       if (h.includes('n')) { a.y = Math.min(q.y, b - 6); a.h = b - a.y; }
       if (h.includes('s')) a.h = Math.max(6, q.y - a.y);
     }
-    paintOverlay(p.id);
+    repaint();
   };
   const up = () => {
     endGesture = null;
+    repaint.cancel();
     rec.svg.removeEventListener('pointermove', move);
     rec.svg.removeEventListener('pointerup', up);
-    if (moved) touch(p.id);
+    rec.svg.removeEventListener('pointercancel', up);
+    if (moved) { touch(p.id); paintOverlay(p.id); }
   };
   endGesture = up;
   rec.svg.addEventListener('pointermove', move);
   rec.svg.addEventListener('pointerup', up);
+  rec.svg.addEventListener('pointercancel', up);
 }
 
 function onDblClick(ev, p) {
@@ -722,7 +765,7 @@ export function openEditor(p, a, isNew) {
     st.color = a.color;
     st.textAlign = a.align;
     document.body.append(ta);
-    editor = { ta, a, p, isNew };
+    editor = { ta, a, p, isNew, was: a.text };
 
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(a.size * LINE_H, ta.scrollHeight) + 'px'; };
     grow();
@@ -746,11 +789,13 @@ export function openEditor(p, a, isNew) {
 
 export function closeEditor(persist) {
   if (!editor) return;
-  const { ta, a, p, isNew } = editor;
+  const { ta, a, p, isNew, was } = editor;
   editor = null;
   a.text = ta.value;
   ta.remove();
   if (!a.text.trim() && a.type === 'text') discardAnnot(a.id);   // an empty cover-up is a deletion
+  // a cancelled click on printed text must leave the page as it was
+  else if (isNew && a.type === 'etext' && a.text === was) discardAnnot(a.id);
   paintOverlay(p.id);
   if (persist || isNew) touch(p.id);
 }
