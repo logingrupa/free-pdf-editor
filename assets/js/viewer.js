@@ -3,7 +3,7 @@
 
 import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, discardAnnot, touch } from './store.js';
 import { uid, clamp, invert, mul } from './util.js';
-import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf, matchFace } from './text.js';
+import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf, matchFace, warmFaces } from './text.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -273,6 +273,8 @@ function paintTextLayer(p, host) {
   if (state.tool !== 'edit' || !isNear(wraps.get(p.id).wrap)) return;
   const lines = lineCache.get(p.id);
   if (!lines) { getLines(p).then(() => paintOverlay(p.id)); return; }
+  // a click measures against these faces, so fetch them while a line is chosen
+  warmFaces(new Set(lines.map(ln => (FAMILIES.includes(ln.fam) ? ln.fam : 'sans'))));
   const used = new Set(annotsOf(p.id).filter(a => a.src).map(a => a.src));
   const layer = el('g', { class: 'tlayer' });
   for (const ln of lines) {
@@ -444,7 +446,8 @@ function onDown(ev, p) {
     if (tl) {
       const ln = (lineCache.get(p.id) || []).find(l => l.id === tl.dataset.line);
       ev.preventDefault();
-      if (ln) replaceLine(p, ln);
+      // a failure here used to leave the click doing nothing at all
+      if (ln) replaceLine(p, ln).catch(err => console.error('could not replace the line', err));
       return;
     }
   }

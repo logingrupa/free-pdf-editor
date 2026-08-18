@@ -76,26 +76,41 @@ export function measure(f, str, size) {
 
 const VARIANTS = [['r', false, false], ['b', true, false], ['i', false, true], ['bi', true, true]];
 const PLAIN = { bold: false, italic: false };
-const FITS = 0.015;   // a face this close to the original width is the one used
+const SURE = 0.006;   // a true metric match measures inside this, so stop looking
+const FITS = 0.015;   // the widest gap still counted as the same face
+
+/** Fetch the faces a replacement is measured against, before a click needs them. */
+export function warmFaces(families) {
+  for (const fam of families) {
+    for (const v of ['r', 'b']) loadFont(`${fam}-${v}`).catch(() => {});
+  }
+}
 
 /**
  * Read weight and slant off a line's own advance width. Upright and slanted
  * share advances at the same weight, so a plain italic line reads as regular;
- * bold italic is narrower than bold and does come through. The slanted pair is
- * only fetched when neither upright face fits.
+ * bold italic is narrower than bold and does come through. Faces are fetched one
+ * at a time and only until the answer is certain, so ordinary text costs one.
  */
 export async function matchFace(family, str, size, width) {
   if (!(width > 0) || !str.trim()) return PLAIN;
-  const errOf = async v => {
-    const f = await loadFont(`${family}-${v[0]}`);
-    return { v, e: Math.abs(measure(f, str, size) - width) / width };
-  };
-  let tried = await Promise.all(VARIANTS.slice(0, 2).map(errOf));
-  if (!tried.some(t => t.e < FITS)) tried = tried.concat(await Promise.all(VARIANTS.slice(2).map(errOf)));
-  let best = tried[0];
-  for (const t of tried) if (t.e < best.e - 0.005) best = t;   // ties keep the simpler face
-  if (best.e > FITS) return PLAIN;                             // unknown face, stay upright
-  return { bold: best.v[1], italic: best.v[2] };
+  try {
+    const tried = [];
+    for (const v of VARIANTS) {
+      const f = await loadFont(`${family}-${v[0]}`);
+      const e = Math.abs(measure(f, str, size) - width) / width;
+      if (e < SURE) return { bold: v[1], italic: v[2] };
+      tried.push({ v, e });
+    }
+    let best = tried[0];
+    for (const t of tried) if (t.e < best.e - 0.005) best = t;   // ties keep the simpler face
+    if (best.e > FITS) return PLAIN;                             // unknown face, stay upright
+    return { bold: best.v[1], italic: best.v[2] };
+  } catch (e) {
+    // the weight is a nicety, never a reason to refuse the edit
+    console.warn('font match failed, using regular', e);
+    return PLAIN;
+  }
 }
 
 function breakWord(f, word, size, maxW) {
