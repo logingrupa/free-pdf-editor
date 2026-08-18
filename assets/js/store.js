@@ -137,6 +137,36 @@ export function discardAnnot(id) {
   if (state.sel === id) { state.sel = null; emit('sel'); }
 }
 
+/** Copy an annotation just above the original, offset so the copy is visible. */
+export function duplicateAnnot(id) {
+  const a = annotById(id);
+  if (!a) return null;
+  commit();
+  const copy = JSON.parse(JSON.stringify(a));
+  copy.id = uid();
+  const d = 12;
+  if (copy.type === 'pen') copy.pts = copy.pts.map(pt => [pt[0] + d, pt[1] + d]);
+  else if (copy.type === 'arrow') { copy.x1 += d; copy.y1 += d; copy.x2 += d; copy.y2 += d; }
+  else { copy.x += d; copy.y += d; }
+  // the copy covers no printed line of its own, so it frees the one it came from
+  if (copy.type === 'etext') { copy.mx += d; copy.my += d; delete copy.src; }
+  state.annots.splice(state.annots.indexOf(a) + 1, 0, copy);
+  state.sel = copy.id;
+  emit('annots', copy.page);
+  emit('sel');
+  changed();
+  return copy;
+}
+
+/** One step up or down the page's draw order. */
+export function restackAnnot(id, dir) {
+  const a = annotById(id);
+  if (!a) return;
+  const mine = state.annots.filter(x => x.page === a.page);
+  const from = mine.indexOf(a);
+  moveAnnot(a.page, from, Math.min(mine.length - 1, Math.max(0, from + dir)));
+}
+
 export function select(id) {
   if (state.sel === id) return;
   state.sel = id;

@@ -150,6 +150,19 @@ body:not([data-empty]) .viewport{display:block}
 .ov .h[data-h="n"],.ov .h[data-h="s"]{cursor:ns-resize}
 .ov .h[data-h="p1"],.ov .h[data-h="p2"]{cursor:move}
 .pagenum{position:absolute;left:50%;transform:translateX(-50%);bottom:-19px;font-size:11px;color:var(--fg-mute)}
+.selbar{
+  position:absolute;z-index:15;display:flex;gap:2px;padding:3px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);
+}
+.selbar-btn{
+  width:32px;height:32px;display:grid;place-items:center;padding:0;
+  border:0;border-radius:8px;background:transparent;color:var(--fg-dim);cursor:pointer;
+  transition:background .12s,color .12s;
+}
+.selbar-btn:hover{background:var(--bg-3);color:var(--fg)}
+.selbar-btn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.selbar-btn[data-act="del"]:hover{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger)}
+.selbar-btn svg{width:17px;height:17px}
 .editbox{
   position:absolute;z-index:20;margin:0;border:0;outline:2px solid var(--accent);border-radius:2px;
   background:#fff;color:#000;resize:none;overflow:hidden;padding:0;box-shadow:0 4px 18px rgba(0,0,0,.3);
@@ -216,9 +229,6 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .layer-kind{flex:none;color:var(--fg-mute);text-transform:uppercase;font-size:10px;letter-spacing:.06em}
 .layer-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-dim)}
 .layers-empty,.layers-hint{margin:6px 2px 0;font-size:11px;color:var(--fg-mute);line-height:1.4}
-.props .btn.wide{width:100%;justify-content:center;border:1px solid var(--line)}
-.props .btn.del{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 35%,transparent)}
-.props .btn.del:hover{background:color-mix(in srgb,var(--danger) 14%,transparent)}
 .tipbox{margin-top:auto;padding-top:12px;font-size:12px;color:var(--fg-mute);line-height:1.5;border-top:1px solid var(--line)}
 
 /* ---- toast / busy ---------------------------------------------------- */
@@ -251,6 +261,9 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   .props h3,.tipbox{display:none}
   .row{margin-bottom:0;flex:1 1 130px}
   .fold{flex:1 1 100%;margin:0;padding-top:8px}
+  /* a finger needs the whole 44px, and the panel below is out of reach anyway */
+  .selbar-btn{width:44px;height:44px}
+  .selbar-btn svg{width:20px;height:20px}
   .rail{position:fixed;left:0;right:0;bottom:0;width:auto;height:52px;flex-direction:row;justify-content:flex-start;border-right:0;border-top:1px solid var(--line);z-index:26;overflow-x:auto;padding:7px 8px}
   .tool{flex:none}
   .viewport{padding:12px 8px 150px}

@@ -527,21 +527,7 @@ function paintProps() {
     if (f === 'box') p.append(boxFold(o));
   }
 
-  if (cur.annot) {
-    const del = document.createElement('button');
-    del.className = 'btn wide del';
-    del.textContent = t('prop.delete');
-    del.onclick = () => S.removeAnnot(cur.obj.id);
-    p.append(row('', del));
-    if (cur.type === 'text' || cur.type === 'etext') {
-      const ed = document.createElement('button');
-      ed.className = 'btn wide';
-      ed.textContent = t('prop.editText');
-      ed.onclick = () => V.openEditor(S.pageById(cur.obj.page), cur.obj, false);
-      p.append(row('', ed));
-    }
-  }
-
+  // edit, duplicate, restack and delete live on the toolbar over the selection
   p.classList.toggle('empty', !p.querySelector('.row'));
   if (narrow.matches) p.append(ui.layers);
 

@@ -1,7 +1,7 @@
 // Page rendering (pdf.js canvas), the SVG annotation layer, the existing-text
 // layer and all pointer work.
 
-import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, discardAnnot, touch } from './store.js';
+import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, discardAnnot, removeAnnot, duplicateAnnot, restackAnnot, touch } from './store.js';
 import { uid, clamp, invert, mul } from './util.js';
 import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf, matchFace, warmFaces, padBox, hasBox, boxPath } from './text.js';
 
@@ -442,6 +442,90 @@ function drawSelection(p, host) {
   host.append(sel);
 }
 
+/* ---- selection toolbar ------------------------------------------------ */
+// HTML, not SVG: the buttons keep their size and their touch area at any zoom.
+const BAR_ICON = {
+  edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L18.5 9.5l-4-4L4 16v4z"/><path d="M14.5 5.5l4 4"/></svg>',
+  copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>',
+  up: '<svg viewBox="0 0 24 24"><path d="M12 20V5M7 10l5-5 5 5"/></svg>',
+  down: '<svg viewBox="0 0 24 24"><path d="M12 4v15M17 14l-5 5-5-5"/></svg>',
+  del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
+};
+
+let bar = null;        // the one toolbar, moved from page to page
+let barFor = '';       // what it was built for
+let barMuted = false;  // a running gesture owns the screen instead
+
+const T = k => window.i18n.t(k);
+
+function barButton(act, label, run) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'selbar-btn';
+  b.dataset.act = act;
+  b.title = label;
+  b.setAttribute('aria-label', label);
+  b.innerHTML = BAR_ICON[act];
+  b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); run(); });
+  return b;
+}
+
+function buildBar(a) {
+  const n = document.createElement('div');
+  n.className = 'selbar';
+  n.setAttribute('role', 'toolbar');
+  n.setAttribute('aria-label', T('app.objectActions'));
+  if (a.type === 'text' || a.type === 'etext') {
+    n.append(barButton('edit', T('prop.editText'), () => openEditor(pageById(a.page), annotById(a.id), false)));
+  }
+  n.append(
+    barButton('copy', T('prop.duplicate'), () => duplicateAnnot(a.id)),
+    barButton('up', T('prop.forward'), () => restackAnnot(a.id, 1)),
+    barButton('down', T('prop.backward'), () => restackAnnot(a.id, -1)),
+    barButton('del', T('prop.delete'), () => removeAnnot(a.id)),
+  );
+  return n;
+}
+
+/** Sit the toolbar clear of the selection, flipped below when the top is tight. */
+function placeBar(rec, b) {
+  const m = rec.g.getScreenCTM();
+  const host = rec.page.getBoundingClientRect();
+  const pts = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
+    .map(([x, y]) => new DOMPoint(x, y).matrixTransform(m));
+  const xs = pts.map(q => q.x - host.left), ys = pts.map(q => q.y - host.top);
+  const gap = 9;
+  const w = bar.offsetWidth, h = bar.offsetHeight;
+  const y = Math.min(...ys) - h - gap;
+  bar.style.left = clamp((Math.min(...xs) + Math.max(...xs)) / 2 - w / 2, 2, Math.max(2, host.width - w - 2)) + 'px';
+  // above the page top would land on the page before it, so flip under the box
+  bar.style.top = (y < 2 ? Math.max(...ys) + gap : y) + 'px';
+}
+
+/** Show, move or drop the one toolbar, from whatever the selection now is. */
+function updateBar() {
+  const a = annotById(state.sel);
+  const rec = a && wraps.get(a.page);
+  if (!a || !rec || editor || barMuted) {
+    if (bar) { bar.remove(); bar = null; barFor = ''; }
+    return;
+  }
+  const want = `${a.id}:${a.type}:${window.i18n.lang}`;
+  if (barFor !== want) {
+    if (bar) bar.remove();
+    bar = buildBar(a);
+    barFor = want;
+  }
+  if (bar.parentElement !== rec.page) rec.page.append(bar);
+  placeBar(rec, box(a));
+}
+
+/** Hide the toolbar while a gesture runs, and bring it back on release. */
+function muteBar(on) {
+  barMuted = on;
+  updateBar();
+}
+
 function paintOverlay(pageId) {
   const rec = wraps.get(pageId);
   if (!rec) return;
@@ -450,6 +534,7 @@ function paintOverlay(pageId) {
   for (const a of annotsOf(pageId)) rec.g.append(drawAnnot(a));
   paintTextLayer(p, rec.g);
   drawSelection(p, rec.g);
+  updateBar();
 }
 
 /* ---- page canvases --------------------------------------------------- */
@@ -490,6 +575,7 @@ const io = new IntersectionObserver(entries => {
 
 function buildAll() {
   closeEditor(false);
+  if (bar) { bar.remove(); bar = null; barFor = ''; }
   for (const rec of wraps.values()) io.unobserve(rec.wrap);
   wraps.clear();
   viewport.textContent = '';
@@ -530,6 +616,7 @@ function isNear(elm) {
 function resize() {
   for (const p of state.pages) { sizePage(p); if (isNear(wraps.get(p.id).wrap)) paintCanvas(p); }
   closeEditor(true);
+  updateBar();
 }
 
 /** Zoom so the widest page fits the stage. */
@@ -762,6 +849,7 @@ function pinchDown(ev) {
   ev.stopPropagation();
   if (endGesture) endGesture();
   closeEditor(true);
+  muteBar(true);
   const { d, cx, cy } = spread();
   const r = viewport.getBoundingClientRect();
   // the point between the fingers, in unscaled content space, stays put
@@ -793,6 +881,7 @@ function pinchMove(ev) {
 function pinchUp(ev) {
   if (!grip.delete(ev.pointerId) || !pinch) return;
   pinch = null;
+  barMuted = false;
   setZoom(state.zoom);
 }
 
@@ -828,7 +917,7 @@ function startMove(ev, p, a) {
 
   const move = e => {
     if (!moved && Math.hypot(e.clientX - ev.clientX, e.clientY - ev.clientY) < 3) return;
-    if (!moved) { moved = true; commit(); }
+    if (!moved) { moved = true; commit(); muteBar(true); }
     dx = (e.clientX - ev.clientX) / sx;
     dy = (e.clientY - ev.clientY) / sy;
     paint();
@@ -842,6 +931,7 @@ function startMove(ev, p, a) {
     if (!moved) return;
     for (const n of live()) if (n) n.removeAttribute('transform');
     shift(a, from, dx, dy);
+    barMuted = false;
     touch(p.id);
     paintOverlay(p.id);
   };
@@ -861,7 +951,7 @@ function startResize(ev, p, a, h) {
 
   const move = e => {
     const q = local(rec, e);
-    if (!moved) { moved = true; commit(); }
+    if (!moved) { moved = true; commit(); muteBar(true); }
     if (a.type === 'arrow') {
       if (h === 'p1') { a.x1 = q.x; a.y1 = q.y; } else { a.x2 = q.x; a.y2 = q.y; }
     } else if (a.type === 'text' || a.type === 'etext') {
@@ -882,7 +972,10 @@ function startResize(ev, p, a, h) {
     rec.svg.removeEventListener('pointermove', move);
     rec.svg.removeEventListener('pointerup', up);
     rec.svg.removeEventListener('pointercancel', up);
-    if (moved) { touch(p.id); paintOverlay(p.id); }
+    if (!moved) return;
+    barMuted = false;
+    touch(p.id);
+    paintOverlay(p.id);
   };
   endGesture = up;
   rec.svg.addEventListener('pointermove', move);
@@ -936,6 +1029,7 @@ export function openEditor(p, a, isNew) {
     st.textAlign = a.align;
     document.body.append(ta);
     editor = { ta, a, p, isNew, was: a.text };
+    updateBar();                                  // the box is being typed in, not handled
 
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(a.size * (a.lh || LINE_H), ta.scrollHeight) + 'px'; };
     grow();
