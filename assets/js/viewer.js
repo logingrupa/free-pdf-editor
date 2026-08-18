@@ -491,6 +491,12 @@ function drawSelection(p, host) {
 // textarea, so the stretch is just its selection, and it outlives the editor so
 // the panel can keep restyling it after a control has taken the focus.
 let range = null;         // {id, from, to}
+let lastDown = null;      // what was pressed last, for browsers that lose track
+let lastDownAt = 0;
+window.addEventListener('pointerdown', ev => {
+  lastDown = ev.target;
+  lastDownAt = performance.now();
+}, true);
 
 export const textRange = () => (range && annotById(range.id) ? range : null);
 const rangeOf = a => (range && range.id === a.id ? range : { from: 0, to: 0 });
@@ -1273,8 +1279,11 @@ export function openEditor(p, a, isNew) {
         if (isNew) ta.select();
         readRange(ta, a);
         ta.addEventListener('blur', ev => {
-          // reaching for a property keeps the edit alive, and the words held
-          const to = ev.relatedTarget;
+          // reaching for a property keeps the edit alive, and the words held.
+          // relatedTarget is empty in the browsers that do not focus a button
+          // on click, so the last thing pressed answers for them.
+          const fresh = performance.now() - lastDownAt < 400 ? lastDown : null;
+          const to = ev.relatedTarget || fresh;
           if (to && to.closest && to.closest('.props, .selbar, .menu')) return;
           closeEditor(true);
         });
@@ -1287,6 +1296,7 @@ export function closeEditor(persist, cancelled) {
   if (!editor) return;
   const { ta, a, p, isNew, was } = editor;
   editor = null;
+  range = null;              // nothing is held once the caret has gone
   a.text = ta.value;
   ta.remove();
   if (!a.text.trim() && a.type === 'text') discardAnnot(a.id);   // an empty cover-up is a deletion
