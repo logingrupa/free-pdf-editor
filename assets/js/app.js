@@ -347,7 +347,8 @@ function paintProps() {
       p.append(row(t('prop.align'), segmented(
         [['left', t('prop.alignLeftLetter'), '', t('prop.alignLeft')],
           ['center', t('prop.alignCenterLetter'), '', t('prop.alignCenter')],
-          ['right', t('prop.alignRightLetter'), '', t('prop.alignRight')]],
+          ['right', t('prop.alignRightLetter'), '', t('prop.alignRight')],
+          ['justify', t('prop.alignJustifyLetter'), '', t('prop.alignJustify')]],
         v => v === o.align,
         v => setProp({ align: v }),
       )));

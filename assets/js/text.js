@@ -163,17 +163,23 @@ export function wrap(f, text, size, maxW) {
  */
 export function layout(a, f) {
   const size = a.size;
-  const lh = size * LINE_H;
+  const lh = size * (a.lh || LINE_H);
   const asc = (f.ascent / f.upem) * size;
   const lines = wrap(f, a.text, size, a.w);
   let widest = 0;
   const out = lines.map((text, i) => {
     const w = measure(f, text, size);
     widest = Math.max(widest, w);
+    // justified copy widens the gaps, and leaves the closing line alone
+    let ws = 0;
+    if (a.align === 'justify' && i < lines.length - 1 && w < a.w) {
+      const gaps = (text.match(/ /g) || []).length;
+      if (gaps) ws = (a.w - w) / gaps;
+    }
     const x = a.align === 'center' ? a.x + (a.w - w) / 2
       : a.align === 'right' ? a.x + a.w - w
         : a.x;
-    return { text, x, y: a.y + asc + i * lh };
+    return { text, x, y: a.y + asc + i * lh, ws };
   });
   return { lines: out, height: Math.max(lh, lines.length * lh), width: widest };
 }

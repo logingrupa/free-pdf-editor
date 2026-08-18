@@ -114,6 +114,7 @@ function appendText(g, a) {
     const t = el('text', {
       x: ln.x, y: ln.y, fill: a.color, 'font-family': cssFamily(key), 'font-size': a.size,
       'font-weight': a.bold ? 700 : 400, 'font-style': a.italic ? 'italic' : 'normal',
+      'word-spacing': ln.ws || null,
       'pointer-events': 'none', 'xml:space': 'preserve',
     });
     t.textContent = ln.text;
@@ -210,6 +211,7 @@ async function getLines(p) {
   for (const ln of lines) ln.locked = seen.get(bucket(ln)) > 1;
 
   lineCache.set(p.id, lines);
+  blockCache.delete(p.id);
   return lines;
 }
 
@@ -256,6 +258,85 @@ function sampleColors(p, rec, b) {
   return { bg: hex(bg), fg: far > 40 ? hex(fg) : fallback.fg };
 }
 
+const blockCache = new Map();  // pageId -> [block]
+
+/** Union of the line boxes a block covers. */
+function blockBox(lines) {
+  const boxes = lines.map(lineBox);
+  const x = Math.min(...boxes.map(b => b.x));
+  const y = Math.min(...boxes.map(b => b.y));
+  return {
+    x, y,
+    w: Math.max(...boxes.map(b => b.x + b.w)) - x,
+    h: Math.max(...boxes.map(b => b.y + b.h)) - y,
+  };
+}
+
+/** The right edge most lines share, which is the justified column edge. */
+function columnRight(lines) {
+  const seen = new Map();
+  for (const ln of lines) {
+    const k = Math.round(ln.x2 * 20) / 20;
+    seen.set(k, (seen.get(k) || 0) + 1);
+  }
+  let right = 0, most = 2;                 // fewer than three agreeing proves nothing
+  for (const [k, n] of seen) if (n > most) { most = n; right = k; }
+  return right;
+}
+
+function finishBlock(lines, step, colRight) {
+  const first = lines[0];
+  const left = Math.min(...lines.map(l => l.x));
+  const right = Math.max(...lines.map(l => l.x2));
+  // justified copy runs every line but the last out to the column edge
+  const justified = lines.length >= 2 && colRight > 0
+    && lines.slice(0, -1).every(l => Math.abs(l.x2 - colRight) < 0.8);
+  return {
+    id: first.id, ids: lines.map(l => l.id), lines,
+    x: left, y: first.y, size: first.size, fname: first.fname, fam: first.fam,
+    asc: first.asc, desc: first.desc,
+    str: lines.map(l => l.str).join(' ').replace(/\s+/g, ' ').trim(),
+    w: (justified ? colRight : right) - left,
+    lh: step ? step / first.size : LINE_H,
+    align: justified ? 'justify' : 'left',
+    box: blockBox(lines),
+  };
+}
+
+/**
+ * Group lines that read as one paragraph: same font and size, a left edge that
+ * lines up, and an even baseline step. A heading stays a block of one.
+ */
+function getBlocks(p, lines) {
+  if (blockCache.has(p.id)) return blockCache.get(p.id);
+  const blocks = [];
+  const colRight = columnRight(lines);
+  let cur = null, step = 0;
+  const flush = () => { if (cur) blocks.push(finishBlock(cur, step, colRight)); cur = null; step = 0; };
+
+  for (const ln of lines) {
+    if (cur) {
+      const prev = cur[cur.length - 1];
+      const gap = ln.y - prev.y;
+      const right = Math.max(...cur.map(l => l.x2));
+      // nothing but a short line marks the end of a paragraph in justified copy
+      const runsOn = prev.x2 >= right - ln.size * 1.5;
+      const joins = runsOn
+        && ln.fname === prev.fname
+        && Math.abs(ln.size - prev.size) < 0.05
+        && gap > ln.size * 0.8 && gap < ln.size * 2.4
+        && (!step || Math.abs(gap - step) <= Math.max(0.6, step * 0.12))
+        && Math.abs(ln.x - cur[0].x) <= ln.size * 0.9;
+      if (joins) { cur.push(ln); step = step || gap; continue; }
+    }
+    flush();
+    cur = [ln];
+  }
+  flush();
+  blockCache.set(p.id, blocks);
+  return blocks;
+}
+
 const faceCache = new Map();   // srcId:fontName -> Promise<{family, bold, italic}>
 
 /**
@@ -276,18 +357,20 @@ function classifyFont(p, ln) {
   return faceCache.get(key);
 }
 
-/** Cover one line of the original text and drop an editable copy on top. */
-async function replaceLine(p, ln) {
+/** Cover a paragraph of the original text and drop an editable copy on top. */
+async function replaceLine(p, blk) {
   const rec = wraps.get(p.id);
-  const b = lineBox(ln);
+  const b = blk.box;
   const { bg, fg } = sampleColors(p, rec, b);
-  const { family, bold, italic } = await classifyFont(p, ln);
+  const { family, bold, italic } = await classifyFont(p, blk);
   const f = await loadFont(fontKey({ family, bold, italic }));
   const a = addAnnot({
-    page: p.id, type: 'etext', src: ln.id,
+    page: p.id, type: 'etext', src: blk.ids,
     mx: b.x, my: b.y, mw: b.w, mh: b.h, bg,
-    x: ln.x, y: ln.y - ascentOf(f, ln.size), w: Math.max(ln.size * 4, p.w - ln.x - 6),
-    text: ln.str, size: ln.size, color: fg, family, bold, italic, align: 'left',
+    x: blk.x, y: blk.y - ascentOf(f, blk.size),
+    w: Math.max(blk.w + (blk.align === 'justify' ? 0 : blk.size * 0.6), blk.size * 4),
+    text: blk.str, size: blk.size, color: fg, family, bold, italic,
+    align: blk.align, lh: blk.lh,
   });
   select(a.id);
   paintOverlay(p.id);
@@ -300,12 +383,12 @@ function paintTextLayer(p, host) {
   if (!lines) { getLines(p).then(() => paintOverlay(p.id)); return; }
   // a click measures against these faces, so fetch them while a line is chosen
   warmFaces(new Set(lines.map(ln => (FAMILIES.includes(ln.fam) ? ln.fam : 'sans'))));
-  const used = new Set(annotsOf(p.id).filter(a => a.src).map(a => a.src));
+  const used = new Set(annotsOf(p.id).flatMap(a => (a.src ? [].concat(a.src) : [])));
   const layer = el('g', { class: 'tlayer' });
-  for (const ln of lines) {
-    if (used.has(ln.id)) continue;
-    const b = lineBox(ln);
-    layer.append(el('rect', { class: 'tl', 'data-line': ln.id, x: b.x, y: b.y, width: b.w, height: b.h, rx: 2 }));
+  for (const blk of getBlocks(p, lines)) {
+    if (blk.ids.some(id => used.has(id))) continue;
+    const b = blk.box;
+    layer.append(el('rect', { class: 'tl', 'data-line': blk.id, x: b.x, y: b.y, width: b.w, height: b.h, rx: 2 }));
   }
   host.append(layer);
 }
@@ -469,7 +552,7 @@ function onDown(ev, p) {
   if (tool === 'edit') {
     const tl = ev.target.closest('.tl');
     if (tl) {
-      const ln = (lineCache.get(p.id) || []).find(l => l.id === tl.dataset.line);
+      const ln = getBlocks(p, lineCache.get(p.id) || []).find(l => l.id === tl.dataset.line);
       ev.preventDefault();
       // a failure here used to leave the click doing nothing at all
       if (ln) replaceLine(p, ln).catch(err => console.error('could not replace the line', err));
@@ -788,7 +871,7 @@ export function openEditor(p, a, isNew) {
     st.width = a.w + 'px';
     st.fontFamily = `${cssFamily(key)}, sans-serif`;
     st.fontSize = a.size + 'px';
-    st.lineHeight = LINE_H;
+    st.lineHeight = a.lh || LINE_H;
     st.fontWeight = a.bold ? 700 : 400;
     st.fontStyle = a.italic ? 'italic' : 'normal';
     st.color = a.color;
@@ -796,7 +879,7 @@ export function openEditor(p, a, isNew) {
     document.body.append(ta);
     editor = { ta, a, p, isNew, was: a.text };
 
-    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(a.size * LINE_H, ta.scrollHeight) + 'px'; };
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(a.size * (a.lh || LINE_H), ta.scrollHeight) + 'px'; };
     grow();
     ta.addEventListener('input', () => { a.text = ta.value; grow(); });
     ta.addEventListener('keydown', e => {

@@ -4,7 +4,7 @@
 
 import { state, srcById } from './store.js';
 import { loadScript, hexRgb, apply } from './util.js';
-import { fontKey, loadFont, layout } from './text.js';
+import { fontKey, loadFont, layout, measure } from './text.js';
 
 const libUrl = new URL('../../vendor/pdf-lib.min.js', import.meta.url).href;
 
@@ -94,8 +94,16 @@ export async function buildPdf() {
         const { f, embedded } = fonts.get(fontKey(a));
         for (const ln of layout(a, f).lines) {
           if (!ln.text.trim()) continue;
-          const at = U(ln.x, ln.y);
-          page.drawText(ln.text, { x: at.x, y: at.y, size: a.size, font: embedded, color: C(a.color), rotate });
+          const draw = (str, x, y) => {
+            const at = U(x, y);
+            page.drawText(str, { x: at.x, y: at.y, size: a.size, font: embedded, color: C(a.color), rotate });
+          };
+          if (!ln.ws) { draw(ln.text, ln.x, ln.y); continue; }
+          let x = ln.x;                                  // widened gaps, so place each word
+          for (const word of ln.text.split(' ')) {
+            if (word) draw(word, x, ln.y);
+            x += measure(f, word + ' ', a.size) + ln.ws;
+          }
         }
       }
     }

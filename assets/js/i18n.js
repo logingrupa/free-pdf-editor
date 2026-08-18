@@ -85,6 +85,8 @@
       'prop.alignCenterLetter': 'C',
       'prop.alignRight': 'Align right',
       'prop.alignRightLetter': 'R',
+      'prop.alignJustify': 'Justify',
+      'prop.alignJustifyLetter': 'J',
 
       'type.edit': 'Edit text',
       'type.select': 'Select',
@@ -190,6 +192,8 @@
       'prop.alignCenterLetter': 'C',
       'prop.alignRight': 'Līdzināt pa labi',
       'prop.alignRightLetter': 'R',
+      'prop.alignJustify': 'Taisnot abās malās',
+      'prop.alignJustifyLetter': 'T',
 
       'type.edit': 'Rediģēt tekstu',
       'type.select': 'Atlasīt',
@@ -301,6 +305,8 @@
       'prop.alignCenterLetter': 'Ц',
       'prop.alignRight': 'По правому краю',
       'prop.alignRightLetter': 'П',
+      'prop.alignJustify': 'По ширине',
+      'prop.alignJustifyLetter': 'Ш',
 
       'type.edit': 'Изменить текст',
       'type.select': 'Выделение',
