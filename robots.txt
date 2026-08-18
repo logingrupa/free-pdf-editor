@@ -1,8 +1,8 @@
-# Served at logingrupa.github.io/edit-pdf/robots.txt.
+# Served at pdfeditor.kingdom.lv/robots.txt.
 # Crawlers read robots.txt from the domain root, so this file only takes
 # effect once the site sits on its own domain. The sitemap below is valid
 # either way and can be submitted directly in Search Console.
 User-agent: *
 Allow: /
 
-Sitemap: https://logingrupa.github.io/edit-pdf/sitemap.xml
+Sitemap: https://pdfeditor.kingdom.lv/sitemap.xml

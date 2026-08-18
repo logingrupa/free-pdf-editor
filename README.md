@@ -3,7 +3,7 @@
 A PDF editor that runs entirely in the browser. Drop a PDF in, change it, download it.
 Nothing is uploaded: no server, no account, no network call after the page loads.
 
-Live: https://logingrupa.github.io/edit-pdf/
+Live: https://pdfeditor.kingdom.lv/
 
 ## Layout
 
