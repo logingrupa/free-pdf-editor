@@ -3,6 +3,7 @@
 import * as S from './store.js';
 import * as V from './viewer.js';
 import { buildPdf } from './exporter.js';
+import { LINE_H } from './text.js';
 import { saveBlob, readAsDataURL } from './util.js';
 
 const t = window.i18n.t;
@@ -182,10 +183,21 @@ ui.imgInput.onchange = async e => {
 
 /* ---- drag and drop --------------------------------------------------- */
 let dragDepth = 0;
-window.addEventListener('dragenter', e => { e.preventDefault(); if (dragDepth++ === 0) body.classList.add('dragging'); });
-window.addEventListener('dragover', e => e.preventDefault());
-window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; body.classList.remove('dragging'); } });
+// only a file from outside opens the drop screen: pages, layers and a grabbed
+// image all drag inside the app
+const hasFiles = e => [...((e.dataTransfer && e.dataTransfer.types) || [])].includes('Files');
+window.addEventListener('dragenter', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  if (dragDepth++ === 0) body.classList.add('dragging');
+});
+window.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener('dragleave', e => {
+  if (!hasFiles(e)) return;
+  if (--dragDepth <= 0) { dragDepth = 0; body.classList.remove('dragging'); }
+});
 window.addEventListener('drop', e => {
+  if (!hasFiles(e)) return;
   e.preventDefault();
   dragDepth = 0;
   body.classList.remove('dragging');
@@ -214,8 +226,8 @@ const FIELDS = {
   ellipse: ['color', 'width', 'fill'],
   highlight: ['fill', 'opacity'],
   whiteout: ['fill'],
-  text: ['color', 'size', 'family', 'face', 'align'],
-  etext: ['color', 'size', 'family', 'face', 'align'],
+  text: ['color', 'size', 'family', 'face', 'align', 'lh', 'box'],
+  etext: ['color', 'size', 'family', 'face', 'align', 'lh', 'box'],
   image: [],
   select: [],
   edit: [],
@@ -342,6 +354,40 @@ function segmented(options, isPressed, onPick) {
   return wrap;
 }
 
+const bars = tops => `<svg viewBox="0 0 24 24"><path d="M4 6h16M${tops[0]} 10h${tops[1]}M4 14h16M${tops[0]} 18h${tops[1]}"/></svg>`;
+const ALIGN_ICON = {
+  left: bars([4, 10]), center: bars([7, 10]), right: bars([10, 10]), justify: bars([4, 16]),
+};
+
+let boxOpen = false;
+
+/** The box behind the text: background, border, corner, padding, shadow. */
+function boxFold(o) {
+  const d = document.createElement('details');
+  d.className = 'fold';
+  d.open = boxOpen;
+  d.addEventListener('toggle', () => { boxOpen = d.open; });
+  const sum = document.createElement('summary');
+  sum.textContent = t('prop.box');
+  d.append(sum);
+
+  // a border colour on its own would draw nothing, so give it a width to show
+  d.append(row(t('prop.background'), swatches(COLORS, o.boxFill || 'none', v => setProp({ boxFill: v }), true)));
+  d.append(row(t('prop.border'), swatches(COLORS, o.boxColor || 'none',
+    v => setProp(v !== 'none' && !(o.boxWidth > 0) ? { boxColor: v, boxWidth: 1 } : { boxColor: v }), true)));
+  d.append(row(t('prop.borderWidth'), slider(0, 8, 0.5, o.boxWidth || 0, ' pt', (v, done) => setProp({ boxWidth: v }, done))));
+  d.append(row(t('prop.radius'), slider(0, 24, 0.5, o.radius || 0, ' pt', (v, done) => setProp({ radius: v }, done))));
+  d.append(row(t('prop.padding'), slider(0, 40, 0.5, o.pad || 0, ' pt', (v, done) => setProp({ pad: v }, done))));
+  d.append(row(t('prop.shadow'), slider(0, 12, 0.5, o.shadow || 0, ' pt', (v, done) => setProp({ shadow: v }, done))));
+  d.append(row(t('prop.shadowColour'), swatches(COLORS, o.shadowColor || '#111827', v => setProp({ shadowColor: v }))));
+
+  const hint = document.createElement('p');
+  hint.className = 'fold-hint';
+  hint.textContent = t('prop.boxHint');
+  d.append(hint);
+  return d;
+}
+
 /** Which page the layer list is about: the selection's, else the first with work. */
 function layersPage() {
   const sel = S.annotById(S.state.sel);
@@ -466,14 +512,19 @@ function paintProps() {
     }
     if (f === 'align') {
       p.append(row(t('prop.align'), segmented(
-        [['left', t('prop.alignLeftLetter'), '', t('prop.alignLeft')],
-          ['center', t('prop.alignCenterLetter'), '', t('prop.alignCenter')],
-          ['right', t('prop.alignRightLetter'), '', t('prop.alignRight')],
-          ['justify', t('prop.alignJustifyLetter'), '', t('prop.alignJustify')]],
+        [['left', ALIGN_ICON.left, '', t('prop.alignLeft')],
+          ['center', ALIGN_ICON.center, '', t('prop.alignCenter')],
+          ['right', ALIGN_ICON.right, '', t('prop.alignRight')],
+          ['justify', ALIGN_ICON.justify, '', t('prop.alignJustify')]],
         v => v === o.align,
         v => setProp({ align: v }),
       )));
     }
+    if (f === 'lh') {
+      p.append(row(t('prop.lineHeight'),
+        slider(0.8, 3, 0.05, o.lh || LINE_H, '', (v, done) => setProp({ lh: v }, done))));
+    }
+    if (f === 'box') p.append(boxFold(o));
   }
 
   if (cur.annot) {

@@ -20,7 +20,10 @@ export const state = {
     ellipse:   { color: '#e11d48', width: 2, fill: 'none' },
     arrow:     { color: '#e11d48', width: 2.5 },
     whiteout:  { fill: '#ffffff' },
-    text:      { color: '#111827', size: 14, family: 'sans', bold: false, italic: false, align: 'left' },
+    text:      {
+      color: '#111827', size: 14, family: 'sans', bold: false, italic: false, align: 'left',
+      pad: 4, boxFill: 'none', boxColor: 'none', boxWidth: 0, radius: 0, shadow: 0, shadowColor: '#111827',
+    },
   },
 };
 

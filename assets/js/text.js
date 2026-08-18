@@ -184,5 +184,29 @@ export function layout(a, f) {
   return { lines: out, height: Math.max(lh, lines.length * lh), width: widest };
 }
 
+/** The styled box behind a text annotation: the wrapping column plus padding. */
+export function padBox(a, height) {
+  const pad = a.pad || 0;
+  return { x: a.x - pad, y: a.y - pad, w: a.w + pad * 2, h: height + pad * 2 };
+}
+
+export const hasBox = a => (a.boxFill && a.boxFill !== 'none')
+  || (a.boxWidth > 0 && a.boxColor && a.boxColor !== 'none');
+
+// Cubics only, so the SVG preview and pdf-lib read the same string.
+const K = 0.5523;
+
+/** Rectangle path, rounded when r says so. */
+export function boxPath(x, y, w, h, r) {
+  const rr = Math.max(0, Math.min(r || 0, w / 2, h / 2));
+  const [x2, y2] = [x + w, y + h];
+  if (!rr) return `M${x} ${y} L${x2} ${y} L${x2} ${y2} L${x} ${y2} Z`;
+  const c = rr * K;
+  return `M${x + rr} ${y} L${x2 - rr} ${y} C${x2 - rr + c} ${y} ${x2} ${y + rr - c} ${x2} ${y + rr}`
+    + ` L${x2} ${y2 - rr} C${x2} ${y2 - rr + c} ${x2 - rr + c} ${y2} ${x2 - rr} ${y2}`
+    + ` L${x + rr} ${y2} C${x + rr - c} ${y2} ${x} ${y2 - rr + c} ${x} ${y2 - rr}`
+    + ` L${x} ${y + rr} C${x} ${y + rr - c} ${x + rr - c} ${y} ${x + rr} ${y} Z`;
+}
+
 /** Distance from the top of a text box to its first baseline. */
 export const ascentOf = (f, size) => (f.ascent / f.upem) * size;

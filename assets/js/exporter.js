@@ -4,7 +4,7 @@
 
 import { state, srcById } from './store.js';
 import { loadScript, hexRgb, apply } from './util.js';
-import { fontKey, loadFont, layout, measure } from './text.js';
+import { fontKey, loadFont, layout, measure, padBox, hasBox, boxPath } from './text.js';
 
 const libUrl = new URL('../../vendor/pdf-lib.min.js', import.meta.url).href;
 
@@ -92,17 +92,56 @@ export async function buildPdf() {
         }
         if (!a.text.trim()) continue;
         const { f, embedded } = fonts.get(fontKey(a));
-        for (const ln of layout(a, f).lines) {
-          if (!ln.text.trim()) continue;
-          const draw = (str, x, y) => {
-            const at = U(x, y);
-            page.drawText(str, { x: at.x, y: at.y, size: a.size, font: embedded, color: C(a.color), rotate });
-          };
-          if (!ln.ws) { draw(ln.text, ln.x, ln.y); continue; }
-          let x = ln.x;                                  // widened gaps, so place each word
-          for (const word of ln.text.split(' ')) {
-            if (word) draw(word, x, ln.y);
-            x += measure(f, word + ' ', a.size) + ln.ws;
+        const { lines, height } = layout(a, f);
+        const b = padBox(a, height);
+        const boxed = hasBox(a);
+        const off = a.shadow || 0;
+        const shade = a.shadowColor || '#111827';
+
+        // the same box the preview draws: a path when it is rounded, a plain
+        // rectangle when it is not
+        const drawBox = (dx, dy, fill, border) => {
+          if (a.radius) {
+            const at = U(b.x + dx, b.y + dy);
+            page.drawSvgPath(boxPath(0, 0, b.w, b.h, a.radius), {
+              x: at.x, y: at.y, rotate,
+              color: fill ? C(fill) : undefined,
+              borderColor: border ? C(border) : undefined,
+              borderWidth: border ? a.boxWidth : 0,
+            });
+            return;
+          }
+          const at = U(b.x + dx, b.y + dy + b.h);
+          page.drawRectangle({
+            x: at.x, y: at.y, width: b.w, height: b.h, rotate,
+            color: fill ? C(fill) : undefined,
+            borderColor: border ? C(border) : undefined,
+            borderWidth: border ? a.boxWidth : 0,
+          });
+        };
+        if (off && boxed) drawBox(off, off, shade, null);
+        if (boxed) {
+          drawBox(0, 0,
+            a.boxFill && a.boxFill !== 'none' ? a.boxFill : null,
+            a.boxWidth && a.boxColor && a.boxColor !== 'none' ? a.boxColor : null);
+        }
+
+        const passes = off && !boxed
+          ? [{ fill: shade, shift: off }, { fill: a.color, shift: 0 }]
+          : [{ fill: a.color, shift: 0 }];
+        for (const pass of passes) {
+          for (const ln of lines) {
+            if (!ln.text.trim()) continue;
+            const draw = (str, x, y) => {
+              const at = U(x + pass.shift, y + pass.shift);
+              page.drawText(str, { x: at.x, y: at.y, size: a.size, font: embedded, color: C(pass.fill), rotate });
+            };
+            if (!ln.ws) { draw(ln.text, ln.x, ln.y); continue; }
+            let x = ln.x;                                  // widened gaps, so place each word
+            for (const word of ln.text.split(' ')) {
+              if (word) draw(word, x, ln.y);
+              x += measure(f, word + ' ', a.size) + ln.ws;
+            }
           }
         }
       }

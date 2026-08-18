@@ -3,7 +3,7 @@
 
 import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, discardAnnot, touch } from './store.js';
 import { uid, clamp, invert, mul } from './util.js';
-import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf, matchFace, warmFaces } from './text.js';
+import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf, matchFace, warmFaces, padBox, hasBox, boxPath } from './text.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -85,9 +85,14 @@ export function box(a) {
   if (a.type === 'text' || a.type === 'etext') {
     const f = fontReady(fontKey(a));
     const h = f ? layout(a, f).height : a.size * LINE_H;
-    if (a.type !== 'etext') return { x: a.x, y: a.y, w: a.w, h };
-    const x = Math.min(a.x, a.mx), y = Math.min(a.y, a.my);
-    return { x, y, w: Math.max(a.x + a.w, a.mx + a.mw) - x, h: Math.max(a.y + h, a.my + a.mh) - y };
+    // the handles wrap what is drawn: the padded box, its border and its shadow
+    const b = padBox(a, h);
+    const grow = (hasBox(a) ? (a.boxWidth || 0) / 2 : 0);
+    const x0 = b.x - grow, y0 = b.y - grow;
+    const x1 = b.x + b.w + grow + (a.shadow || 0), y1 = b.y + b.h + grow + (a.shadow || 0);
+    if (a.type !== 'etext') return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    const x = Math.min(x0, a.mx), y = Math.min(y0, a.my);
+    return { x, y, w: Math.max(x1, a.mx + a.mw) - x, h: Math.max(y1, a.my + a.mh) - y };
   }
   return { x: a.x, y: a.y, w: a.w, h: a.h };
 }
@@ -101,25 +106,46 @@ function headPath(a) {
   return `M${lx} ${ly} L${a.x2} ${a.y2} L${rx} ${ry}`;
 }
 
+/** One laid-out line, optionally offset and recoloured for the shadow pass. */
+function lineEl(a, key, ln, fill, off = 0) {
+  const t = el('text', {
+    x: ln.x + off, y: ln.y + off, fill, 'font-family': cssFamily(key), 'font-size': a.size,
+    'font-weight': a.bold ? 700 : 400, 'font-style': a.italic ? 'italic' : 'normal',
+    'word-spacing': ln.ws || null,
+    'pointer-events': 'none', 'xml:space': 'preserve',
+  });
+  t.textContent = ln.text;
+  return t;
+}
+
 /** Shared by the plain text box and the replaced-text annotation. */
 function appendText(g, a) {
   const key = fontKey(a);
   const f = fontReady(key);
   if (!f) { loadFont(key).then(() => emit('annots', a.page)); return; }
   const { lines, height, width } = layout(a, f);
+  const b = padBox(a, height);
+  const boxed = hasBox(a);
+  const off = a.shadow || 0;
+  const shade = a.shadowColor || '#111827';
+
+  // a shadow follows the box when there is one, the letters when there is not
+  if (off && boxed) {
+    g.append(el('path', { d: boxPath(b.x + off, b.y + off, b.w, b.h, a.radius), fill: shade, stroke: 'none', 'pointer-events': 'none' }));
+  }
+  if (boxed) {
+    g.append(el('path', {
+      d: boxPath(b.x, b.y, b.w, b.h, a.radius),
+      fill: a.boxFill && a.boxFill !== 'none' ? a.boxFill : 'none',
+      stroke: a.boxWidth && a.boxColor && a.boxColor !== 'none' ? a.boxColor : 'none',
+      'stroke-width': a.boxWidth || 0, 'pointer-events': 'all',
+    }));
+  }
+  if (off && !boxed) for (const ln of lines) if (ln.text) g.append(lineEl(a, key, ln, shade, off));
+
   const left = lines.length ? Math.min(...lines.map(l => l.x)) : a.x;
   g.append(el('rect', { class: 'hit', x: left, y: a.y, width: Math.max(width, 12), height, 'pointer-events': 'all', stroke: 'none' }));
-  for (const ln of lines) {
-    if (!ln.text) continue;
-    const t = el('text', {
-      x: ln.x, y: ln.y, fill: a.color, 'font-family': cssFamily(key), 'font-size': a.size,
-      'font-weight': a.bold ? 700 : 400, 'font-style': a.italic ? 'italic' : 'normal',
-      'word-spacing': ln.ws || null,
-      'pointer-events': 'none', 'xml:space': 'preserve',
-    });
-    t.textContent = ln.text;
-    g.append(t);
-  }
+  for (const ln of lines) if (ln.text) g.append(lineEl(a, key, ln, a.color));
 }
 
 function drawAnnot(a) {
@@ -489,6 +515,8 @@ function buildAll() {
     paintOverlay(p.id);
     svg.addEventListener('pointerdown', ev => onDown(ev, p));
     svg.addEventListener('dblclick', ev => onDblClick(ev, p));
+    // a placed image is draggable to the browser, which would hijack a resize
+    svg.addEventListener('dragstart', ev => ev.preventDefault());
     io.observe(wrap);
   });
   state.pages.forEach(p => { if (isNear(wraps.get(p.id).wrap)) paintCanvas(p); });
@@ -611,6 +639,7 @@ function onDown(ev, p) {
         w: dragged ? drawn : Math.min(260, Math.max(80, p.w - pt.x - 12)),
         text: '', ...style,
       });
+      select(a.id);              // so the panel styles the new box, not the tool
       paintOverlay(p.id);
       openEditor(p, a, true);
     };
