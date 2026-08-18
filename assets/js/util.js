@@ -80,22 +80,11 @@ export function saveBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-export const readAsArrayBuffer = file => file.arrayBuffer();
-
 export function readAsDataURL(file) {
   return new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = () => res(r.result);
     r.onerror = () => rej(r.error);
     r.readAsDataURL(file);
-  });
-}
-
-export function loadImage(src) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => res(img);
-    img.onerror = () => rej(new Error('Bad image'));
-    img.src = src;
   });
 }

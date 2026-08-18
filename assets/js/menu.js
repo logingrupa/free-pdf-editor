@@ -15,8 +15,6 @@ export function closeMenu() {
   if (opener && opener.isConnected) opener.focus();
 }
 
-export const menuOpen = () => !!live;
-
 const itemsOf = node => [...node.querySelectorAll('.menu-item:not([disabled])')];
 
 function step(node, dir) {

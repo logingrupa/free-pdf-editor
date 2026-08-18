@@ -127,7 +127,7 @@ export function loadFont(key) {
   return cache.get(key);
 }
 
-export const fontReady = key => ready.get(key) || null;
+const fontReady = key => ready.get(key) || null;
 
 /** Width of a string at a size, matching pdf-lib's own measurement. */
 export function measure(f, str, size) {
