@@ -3,88 +3,470 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Edit PDF - private, in-browser PDF editor</title>
-<meta name="description" content="Drop a PDF, annotate it, download it. Nothing is uploaded - the whole editor runs in your browser.">
-<meta name="color-scheme" content="dark light">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%236d5efc'/%3E%3Cpath d='M9 22h14M11 18l7-7 3 3-7 7h-3z' stroke='white' stroke-width='2' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/css/app.css">
+<title>Free PDF editor - edit a PDF in your browser, no upload</title>
+<meta name="description" content="Open a PDF, retype the text printed on it, sign it, then download. It all runs inside your browser tab, so the file is never uploaded. Free, no account.">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<link rel="canonical" href="https://logingrupa.github.io/edit-pdf/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Edit PDF">
+<meta property="og:url" content="https://logingrupa.github.io/edit-pdf/">
+<meta property="og:title" content="Free PDF editor - edit a PDF in your browser, no upload">
+<meta property="og:description" content="Retype the text already printed on a PDF, sign it, then download. The file stays on your device the whole time.">
+<meta property="og:image" content="https://logingrupa.github.io/edit-pdf/assets/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Edit PDF, a PDF editor that runs in the browser with nothing uploaded.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free PDF editor - edit a PDF in your browser, no upload">
+<meta name="twitter:description" content="Retype the text already printed on a PDF, sign it, then download. The file stays on your device the whole time.">
+<meta name="twitter:image" content="https://logingrupa.github.io/edit-pdf/assets/img/og.png">
+
+<link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<script src="assets/js/theme.js"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<link rel="stylesheet" href="assets/css/site.css">
+<noscript><style>[data-reveal]{opacity:1;transform:none}</style></noscript>
 </head>
-<body data-empty="1">
+<body>
 
-<header class="topbar">
-  <div class="brand">
-    <svg viewBox="0 0 32 32" class="brand-mark" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M9 22h14M11 18l7-7 3 3-7 7h-3z"/></svg>
-    <span>Edit&nbsp;PDF</span>
+<a class="skip" href="#main">Skip to content</a>
+
+<nav class="site-nav" aria-label="Primary">
+  <div class="wrap nav-inner">
+    <a class="brand" href="./">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M9 22h14M11 18l7-7 3 3-7 7h-3z"/></svg>
+      <span>Edit&nbsp;PDF</span>
+    </a>
+    <div class="nav-links">
+      <a href="#what-it-does">What it does</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <button class="icon-button" type="button" data-theme-toggle aria-label="Switch theme">
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.6 8.6 0 0 1 9.4 4 8.6 8.6 0 1 0 20 14.6z"/></svg>
+    </button>
+    <a class="button button-primary button-sm" href="app/">Open the editor</a>
   </div>
+</nav>
 
-  <div class="file" id="fileBox">
-    <span class="file-name" id="fileName" title="Click to rename" contenteditable="false"></span>
-    <span class="file-meta" id="fileMeta"></span>
-  </div>
+<main id="main">
 
-  <div class="spacer"></div>
+  <!-- ---------- hero ---------- -->
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="pulse" aria-hidden="true"></span> <b>Runs in your browser.</b> Nothing is uploaded.</p>
+        <h1>Edit a PDF without uploading it anywhere</h1>
+        <p class="lead">Open a file, retype the text that is already printed on the page, add a signature, cross things out, then download it. The PDF is read by this page, never sent to a server. No account, no watermark, no page limit.</p>
+        <div class="cta-row">
+          <a class="button button-primary" href="app/">
+            Open the editor
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="button button-quiet" href="https://github.com/logingrupa/edit-pdf" rel="noopener">
+            <svg class="icon-fill" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>
+            Read the source
+          </a>
+        </div>
+        <p class="cta-note">Free. Nothing to install. Works in Chrome, Edge, Firefox and Safari.</p>
+      </div>
 
-  <div class="grp" id="historyGrp">
-    <button class="btn icon" id="undoBtn" title="Undo (Ctrl+Z)" disabled><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
-    <button class="btn icon" id="redoBtn" title="Redo (Ctrl+Shift+Z)" disabled><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
-  </div>
+      <!-- bespoke mockup of the editor, drawn in CSS so it themes with the page -->
+      <figure class="mock" data-reveal>
+        <div class="mock-frame">
+        <div class="mock-bar">
+          <span class="mock-mark" aria-hidden="true"></span>
+          <span class="mock-file">tenancy-agreement.pdf</span>
+          <span class="mock-meta">4 pages</span>
+          <span class="spacer"></span>
+          <span class="mock-pill">100%</span>
+          <span class="mock-pill">Saved</span>
+          <span class="mock-pill on">Download</span>
+        </div>
+        <div class="mock-body">
+          <div class="mock-rail" aria-hidden="true">
+            <i class="mock-tool on"></i><i class="mock-tool"></i><i class="mock-tool"></i>
+            <i class="mock-tool"></i><i class="mock-tool"></i><i class="mock-tool"></i>
+          </div>
+          <div class="mock-stage">
+            <div class="mock-page" aria-hidden="true">
+              <span class="mock-line head"></span>
+              <span class="mock-line"></span>
+              <span class="mock-line mid"></span>
+              <span class="mock-edit"><span>the rent is payable on the 1st</span><i class="mock-caret"></i></span>
+              <span class="mock-line"></span>
+              <span class="mock-line mark short"></span>
+              <span class="mock-line mid"></span>
+              <span class="mock-line"></span>
+              <span class="mock-line tiny"></span>
+              <span class="mock-line head"></span>
+              <span class="mock-line mid"></span>
+              <span class="mock-line"></span>
+              <span class="mock-line short"></span>
+              <span class="mock-sign">
+                <svg viewBox="0 0 104 38"><path d="M4 27c9-3 13-19 18-19s2 21 8 21 8-23 14-23 3 20 9 20 10-11 16-11 8 6 12 6"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="mock-props" aria-hidden="true">
+            <span class="mock-label">Text</span>
+            <div class="mock-swatches">
+              <i style="background:#111827"></i><i style="background:#fff"></i><i style="background:#e11d48"></i>
+              <i style="background:#f5c542"></i><i style="background:#3ecf8e"></i><i style="background:#5442ef"></i>
+            </div>
+            <span class="mock-label">Size</span>
+            <div class="mock-slider"></div>
+            <span class="mock-label">Opacity</span>
+            <div class="mock-slider"></div>
+          </div>
+        </div>
+        </div>
+        <figcaption class="mock-caption">A line of the original text picked up for retyping, with the replacement drawn on the same baseline.</figcaption>
+      </figure>
 
-  <div class="grp zoomgrp">
-    <button class="btn icon" id="zoomOut" title="Zoom out (Ctrl -)"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
-    <button class="btn zoomval" id="zoomVal" title="Reset zoom">100%</button>
-    <button class="btn icon" id="zoomIn" title="Zoom in (Ctrl +)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-  </div>
-
-  <span class="save-state" id="saveState" hidden></span>
-
-  <button class="btn ghost" id="newBtn" title="Close and start over"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg><span>Close</span></button>
-  <button class="btn primary" id="downloadBtn" disabled>
-    <svg viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></svg><span>Download</span>
-  </button>
-</header>
-
-<main class="shell">
-
-  <nav class="rail" id="rail" aria-label="Tools">
-    <button class="tool" data-tool="edit" title="Edit the text already on the page (E)"><svg viewBox="0 0 24 24"><path d="M4 6h13M4 11h8M4 16h5"/><path d="M14.5 19.5l5.5-5.5 2 2-5.5 5.5H14.5z"/></svg></button>
-    <button class="tool" data-tool="select" title="Select / move (V)"><svg viewBox="0 0 24 24"><path d="M4 3l7 17 2.2-6.8L20 11 4 3z"/></svg></button>
-    <button class="tool" data-tool="text" title="Text (T)"><svg viewBox="0 0 24 24"><path d="M5 7V5h14v2M12 5v14M9.5 19h5"/></svg></button>
-    <button class="tool" data-tool="pen" title="Draw (P)"><svg viewBox="0 0 24 24"><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4.5 1.5L5 15 16.5 3.5z"/></svg></button>
-    <button class="tool" data-tool="highlight" title="Highlight (H)"><svg viewBox="0 0 24 24"><path d="M4 20h7"/><path d="M12.5 4.5l5 5-6.5 6.5H6v-5l6.5-6.5z"/></svg></button>
-    <button class="tool" data-tool="rect" title="Rectangle (R)"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg></button>
-    <button class="tool" data-tool="ellipse" title="Ellipse (O)"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6.5"/></svg></button>
-    <button class="tool" data-tool="arrow" title="Arrow (A)"><svg viewBox="0 0 24 24"><path d="M5 19L19 5M11 5h8v8"/></svg></button>
-    <button class="tool" data-tool="whiteout" title="White-out / redact (W)"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="10" rx="1.5" class="solid"/></svg></button>
-    <button class="tool" data-tool="image" title="Place image or signature (I)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5L6 21"/></svg></button>
-  </nav>
-
-  <aside class="pages" id="pagesPanel" aria-label="Pages">
-    <div class="pages-head"><span>Pages</span><button class="btn icon sm" id="pagesToggle" title="Hide page list"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button></div>
-    <div class="thumbs" id="thumbs"></div>
-  </aside>
-
-  <section class="stage" id="stage">
-    <div class="drop" id="drop">
-      <div class="drop-inner">
-        <div class="drop-icon"><svg viewBox="0 0 24 24"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
-        <h1>Drop a PDF here</h1>
-        <p>Annotate it, then download. The file never leaves this device - no upload, no server, no account.</p>
-        <button class="btn primary lg" id="pickBtn">Choose PDF</button>
-        <p class="hint">Work is auto-saved in this browser, so a refresh will not lose it.</p>
+      <!-- the four zeros -->
+      <div class="zeros" data-reveal>
+        <div class="zero">
+          <b>0</b>
+          <strong>files uploaded</strong>
+          <span>The page reads your PDF through the browser file API. There is no upload endpoint to send it to.</span>
+        </div>
+        <div class="zero">
+          <b>0</b>
+          <strong>accounts</strong>
+          <span>No sign-up wall, no email, no trial that expires halfway through a document.</span>
+        </div>
+        <div class="zero">
+          <b>0</b>
+          <strong>third-party requests</strong>
+          <span>No CDN, no analytics, no web fonts pulled from someone else's server.</span>
+        </div>
+        <div class="zero">
+          <b>0</b>
+          <strong>to pay</strong>
+          <span>No paid tier holding pages back, and no watermark stamped on the download.</span>
+        </div>
       </div>
     </div>
-    <div class="viewport" id="viewport"></div>
   </section>
 
-  <aside class="props" id="props" aria-label="Properties"></aside>
+  <!-- ---------- features ---------- -->
+  <section class="section" id="what-it-does">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
+        <p class="kicker">What it does</p>
+        <h2>A PDF editor that goes at the text, not just over it</h2>
+        <p class="lead">Most browser tools let you stamp a signature on top and call that editing. This one lets you pick up a line that is already printed on the page and retype it.</p>
+      </div>
+
+      <div class="cards" data-reveal>
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h13M4 11h8M4 16h5"/><path d="M14.5 19.5l5.5-5.5 2 2-5.5 5.5H14.5z"/></svg></div>
+          <h3>Retype the text that is already there</h3>
+          <p>Click a line and type over it. The editor samples the paper colour behind that line, covers the old glyphs with it, then redraws your text at the same baseline, size and ink colour.</p>
+        </article>
+
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4.5 1.5L5 15 16.5 3.5z"/></svg></div>
+          <h3>Sign it</h3>
+          <p>Drop in a PNG or JPEG of your signature, or draw one with the pen, then drag it where it belongs. Scale it, move it, undo it.</p>
+        </article>
+
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="16" height="10" rx="1.5"/><path d="M7 12h10"/></svg></div>
+          <h3>Cover what should not be printed</h3>
+          <p>White-out blocks and filled rectangles hide anything on the page. Worth knowing up front: they paint over the text rather than delete it, so treat this as tidying, not redaction.</p>
+        </article>
+
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h7"/><path d="M12.5 4.5l5 5-6.5 6.5H6v-5l6.5-6.5z"/></svg></div>
+          <h3>Mark it up</h3>
+          <p>Highlights, arrows, boxes, ellipses and freehand ink. Colour, thickness and opacity are set per object, and everything stays selectable and movable afterwards.</p>
+        </article>
+
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="11" height="14" rx="1.5"/><path d="M10 20h9a1.5 1.5 0 0 0 1.5-1.5V8"/></svg></div>
+          <h3>Reorder and merge pages</h3>
+          <p>Rotate, delete or drag pages into a new order. Drop a second PDF onto the window and its pages are appended to the end, which is how you merge two files here.</p>
+        </article>
+
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></svg></div>
+          <h3>Download a real PDF</h3>
+          <p>Text goes out as text and shapes go out as vectors, written with pdf-lib. The result stays selectable and searchable instead of turning into a stack of flattened images.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- how it works ---------- -->
+  <section class="section" id="how-it-works">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
+        <p class="kicker">How it works</p>
+        <h2>Three steps, and no upload in any of them</h2>
+      </div>
+
+      <div class="steps" data-reveal>
+        <div class="step">
+          <h3>Open the file</h3>
+          <p>Drag a PDF onto the page or pick one from disk. The browser hands the bytes straight to the page, the same way a photo editor gets an image.</p>
+        </div>
+        <div class="step">
+          <h3>Change it</h3>
+          <p>Retype lines, add text boxes, sign, highlight, reorder pages. Work is written into this browser as you go, so a refresh or an accidental tab close costs you nothing.</p>
+        </div>
+        <div class="step">
+          <h3>Download it</h3>
+          <p>The editor assembles a fresh PDF in the tab and hands it to your downloads folder. Your changes, no watermark, no size cap on the free version, because there is no other version.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- privacy ---------- -->
+  <section class="section" id="privacy">
+    <div class="wrap">
+      <div class="proof" data-reveal>
+        <div class="proof-copy">
+          <p class="kicker">Why it is built this way</p>
+          <h2>You can check the claim yourself</h2>
+          <p class="lead">Most sites that rank for "edit PDF online" work the same way. You upload the file, a server changes it, you download the result.</p>
+          <p>That is fine for a takeaway menu. It is less fine for a tenancy agreement, a payslip, a passport scan or anything with a client's name on it, because the file now sits on a disk you do not control, under a retention policy you did not read.</p>
+          <p>This page does the work locally instead. pdf.js draws your pages onto a canvas, pdf-lib writes the new file, and both run inside the tab. The project has no server side at all. It is a folder of static files.</p>
+          <p>None of that has to be taken on trust. Load the page, open DevTools, switch to the Network tab, then drop your PDF in.</p>
+        </div>
+
+        <div class="netpanel" role="img" aria-label="A browser network panel showing no requests recorded while a PDF is being edited.">
+          <div class="netpanel-bar"><b>Network</b><span>All</span><span>Preserve log</span></div>
+          <div class="netpanel-body">
+            <strong>No requests recorded</strong>
+            Drop a file in, edit it, download it. The list stays empty.
+          </div>
+          <div class="netpanel-foot"><span><b>0</b> requests</span><span><b>0 B</b> transferred</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- comparison ---------- -->
+  <section class="section" id="compared">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
+        <p class="kicker">Compared with</p>
+        <h2>The usual online PDF site, and this one</h2>
+      </div>
+
+      <div class="table-scroll" data-reveal>
+        <table>
+          <caption>How a typical hosted PDF tool differs from an editor that runs on your own machine.</caption>
+          <thead>
+            <tr><th scope="col">&nbsp;</th><th scope="col">Typical online PDF tool</th><th scope="col">Edit PDF</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Where your file goes</th><td>Uploaded to their server</td><td class="mine">Stays in the browser tab</td></tr>
+            <tr><th scope="row">Sign-up</th><td>Email or account, often asked for after you have done the work</td><td class="mine">None</td></tr>
+            <tr><th scope="row">Watermark on the output</th><td>Common on the free tier</td><td class="mine">None</td></tr>
+            <tr><th scope="row">Page and size limits</th><td>Usually capped until you subscribe</td><td class="mine">Bounded by your device memory</td></tr>
+            <tr><th scope="row">Editing text already on the page</th><td>Usually behind the paid plan</td><td class="mine">Included</td></tr>
+            <tr><th scope="row">Price</th><td>Free tier plus a subscription</td><td class="mine">Free, with no paid tier</td></tr>
+            <tr><th scope="row">Source code</th><td>Closed</td><td class="mine">Public on GitHub</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- faq ---------- -->
+  <section class="section" id="faq">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
+        <p class="kicker">FAQ</p>
+        <h2>Questions people actually ask</h2>
+      </div>
+
+      <div class="faq" data-reveal>
+        <details>
+          <summary>Is it really free?</summary>
+          <div class="faq-answer"><p>Yes. There is no paid tier, no trial and no account. It is a static page, so running it costs the hosting of a few files.</p></div>
+        </details>
+        <details>
+          <summary>Does my file get uploaded?</summary>
+          <div class="faq-answer"><p>No. The page reads your PDF through the browser file API and writes the new one in the same tab. There is no upload endpoint anywhere in the code. Open the Network tab in DevTools and watch it stay empty while you work.</p></div>
+        </details>
+        <details>
+          <summary>Can I really edit the text that is already in the PDF?</summary>
+          <div class="faq-answer">
+            <p>Yes, with a caveat worth understanding. PDF glyphs are drawn from embedded fonts that are usually subsetted with private encodings, so rewriting the original content stream inside a browser is not realistic.</p>
+            <p>The editor does what desktop tools do instead. It covers the old line with the paper colour sampled from the page, then draws your replacement over it at the same baseline, size and ink colour, using a bundled Unicode font. The on-screen preview and the downloaded file use the same line-breaking code, so they match.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Is the white-out tool the same as redaction?</summary>
+          <div class="faq-answer"><p>No, and the difference matters. White-out blocks and rectangles paint over the page. The original text objects are still in the file and a text extractor can pull them back out. If you need genuine redaction for something legal or medical, use a tool that strips the content rather than one that covers it.</p></div>
+        </details>
+        <details>
+          <summary>Which alphabets can I type?</summary>
+          <div class="faq-answer"><p>DejaVu Sans, Serif and Mono ship with the editor, which covers Latin Extended plus Cyrillic and Greek. Latvian, Polish, Czech, Russian and Greek all type and export correctly.</p></div>
+        </details>
+        <details>
+          <summary>Does it work on a phone?</summary>
+          <div class="faq-answer"><p>Yes. The tool rail moves to the bottom of the screen on narrow viewports. Precise work with a fingertip is still fiddly, so a tablet with a stylus is a nicer way to sign something.</p></div>
+        </details>
+        <details>
+          <summary>Is there a file size limit?</summary>
+          <div class="faq-answer"><p>Only what your device can hold. Everything lives in the tab, so a 300 page scan will feel slower than a 3 page invoice, and a very old phone may run out of memory on a big file.</p></div>
+        </details>
+        <details>
+          <summary>Where is the code?</summary>
+          <div class="faq-answer"><p>On GitHub at <a href="https://github.com/logingrupa/edit-pdf" rel="noopener">github.com/logingrupa/edit-pdf</a>. It is plain HTML, CSS and ES modules with no build step, so what sits in the repository is exactly what runs in your browser.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- closing ---------- -->
+  <section class="section">
+    <div class="wrap">
+      <div class="final" data-reveal>
+        <h2>Open a PDF and see</h2>
+        <p class="lead">It takes about five seconds to find out whether this does what you need.</p>
+        <div class="cta-row">
+          <a class="button button-primary" href="app/">
+            Open the editor
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="button button-quiet" href="https://github.com/logingrupa/edit-pdf" rel="noopener">Read the source</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
-<input type="file" id="fileInput" accept="application/pdf,.pdf" hidden multiple>
-<input type="file" id="imgInput" accept="image/png,image/jpeg" hidden>
-<div class="toast" id="toast" hidden></div>
-<div class="busy" id="busy" hidden><div class="spin"></div><span id="busyText">Working...</span></div>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-inner">
+      <div>
+        <a class="brand" href="./">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M9 22h14M11 18l7-7 3 3-7 7h-3z"/></svg>
+          <span>Edit&nbsp;PDF</span>
+        </a>
+        <p class="footer-note">A PDF editor that runs where your file already is: on your own machine.</p>
+      </div>
 
-<script src="vendor/pdf.min.js"></script>
-<script type="module" src="assets/js/app.js"></script>
+      <div class="footer-links">
+        <div class="footer-col">
+          <span>Product</span>
+          <a href="app/">Open the editor</a>
+          <a href="#what-it-does">What it does</a>
+          <a href="#how-it-works">How it works</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <div class="footer-col">
+          <span>Code</span>
+          <a href="https://github.com/logingrupa/edit-pdf" rel="noopener">Repository</a>
+          <a href="https://github.com/logingrupa/edit-pdf/issues" rel="noopener">Report a problem</a>
+        </div>
+        <div class="footer-col">
+          <span>Built with</span>
+          <a href="https://mozilla.github.io/pdf.js/" rel="noopener">pdf.js</a>
+          <a href="https://pdf-lib.js.org/" rel="noopener">pdf-lib</a>
+          <a href="https://dejavu-fonts.github.io/" rel="noopener">DejaVu fonts</a>
+        </div>
+      </div>
+    </div>
+    <p class="footer-bottom">Built by Logingrupa. Your files stay yours.</p>
+  </div>
+</footer>
+
+<script type="module" src="assets/js/site.js"></script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Edit PDF",
+  "url": "https://logingrupa.github.io/edit-pdf/",
+  "applicationCategory": "UtilitiesApplication",
+  "applicationSubCategory": "PDF editor",
+  "operatingSystem": "Any device with a modern web browser",
+  "browserRequirements": "Requires JavaScript. Chrome, Edge, Firefox or Safari.",
+  "description": "A PDF editor that runs entirely in the browser. Retype the text already printed on a page, sign, annotate, reorder pages and download, without uploading the file to a server.",
+  "softwareHelp": "https://logingrupa.github.io/edit-pdf/#faq",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "featureList": [
+    "Edit text already printed on the page",
+    "Add text boxes, freehand ink, highlights, arrows and shapes",
+    "Place a signature or image",
+    "White-out blocks",
+    "Rotate, delete, reorder and merge pages",
+    "Undo and redo with automatic local saving",
+    "Export a vector PDF with no watermark"
+  ],
+  "creator": {
+    "@type": "Organization",
+    "name": "Logingrupa",
+    "url": "https://github.com/logingrupa"
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is it really free?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. There is no paid tier, no trial and no account. It is a static page, so running it costs the hosting of a few files." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does my file get uploaded?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. The page reads your PDF through the browser file API and writes the new one in the same tab. There is no upload endpoint anywhere in the code. Open the Network tab in DevTools and watch it stay empty while you work." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I really edit the text that is already in the PDF?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, with a caveat. PDF glyphs are drawn from embedded fonts that are usually subsetted with private encodings, so rewriting the original content stream inside a browser is not realistic. The editor covers the old line with the paper colour sampled from the page, then draws your replacement over it at the same baseline, size and ink colour, using a bundled Unicode font. The preview and the downloaded file use the same line-breaking code, so they match." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is the white-out tool the same as redaction?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. White-out blocks and rectangles paint over the page. The original text objects are still in the file and a text extractor can pull them back out. If you need genuine redaction, use a tool that strips the content rather than one that covers it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Which alphabets can I type?",
+      "acceptedAnswer": { "@type": "Answer", "text": "DejaVu Sans, Serif and Mono ship with the editor, which covers Latin Extended plus Cyrillic and Greek. Latvian, Polish, Czech, Russian and Greek all type and export correctly." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it work on a phone?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. The tool rail moves to the bottom of the screen on narrow viewports. Precise work with a fingertip is fiddly, so a tablet with a stylus is a nicer way to sign something." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is there a file size limit?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only what your device can hold. Everything lives in the tab, so a 300 page scan will feel slower than a 3 page invoice, and a very old phone may run out of memory on a big file." }
+    },
+    {
+      "@type": "Question",
+      "name": "Where is the code?",
+      "acceptedAnswer": { "@type": "Answer", "text": "On GitHub at github.com/logingrupa/edit-pdf. It is plain HTML, CSS and ES modules with no build step, so what sits in the repository is exactly what runs in your browser." }
+    }
+  ]
+}
+</script>
+
 </body>
 </html>

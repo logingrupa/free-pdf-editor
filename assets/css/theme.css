@@ -1,0 +1,47 @@
+/* Design tokens shared by the landing page and the editor.
+   Each token carries both palettes once: light-dark() resolves against the
+   active color-scheme, and theme.js flips that by stamping data-theme on
+   <html>. With no data-theme set the OS preference wins. */
+:root{
+  color-scheme: light dark;
+
+  /* surfaces */
+  --bg:        light-dark(#f6f7fb, #0d0e13);
+  --bg-2:      light-dark(#ffffff, #14161d);
+  --bg-3:      light-dark(#eef0f6, #1b1e28);
+  --line:      light-dark(#e0e3ec, #262a36);
+  --line-soft: light-dark(#ebedf3, #1d2029);
+
+  /* text */
+  --fg:      light-dark(#131620, #e9ebf3);
+  --fg-dim:  light-dark(#565e73, #9aa1b5);
+  --fg-mute: light-dark(#858da2, #6b7288);
+
+  /* brand */
+  --accent:        light-dark(#5442ef, #7d70ff);
+  --accent-strong: light-dark(#4634d8, #9086ff);
+  --accent-fg:     #fff;
+  --accent-soft:   light-dark(#5442ef14, #7d70ff1f);
+  --accent-line:   light-dark(#5442ef33, #7d70ff33);
+  --glow:          light-dark(#5442ef1f, #7d70ff38);
+
+  /* status */
+  --danger: light-dark(#d93a41, #f2545b);
+  --ok:     light-dark(#12925f, #3ecf8e);
+
+  /* document canvas */
+  --stage: light-dark(#e9ebf2, #08090d);
+  --paper: #fff;
+
+  --shadow:    light-dark(0 8px 24px rgba(20,25,50,.12), 0 10px 30px rgba(0,0,0,.45));
+  --shadow-lg: light-dark(0 30px 70px -28px rgba(20,25,50,.32), 0 30px 70px -24px rgba(0,0,0,.75));
+
+  --font-ui: ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --font-mono: ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+:root[data-theme="light"]{ color-scheme: light }
+:root[data-theme="dark"] { color-scheme: dark }
+
+/* Theme toggle icon swap, shared by both pages. */
+:root[data-theme="dark"] .icon-moon,
+:root:not([data-theme="dark"]) .icon-sun{ display:none }

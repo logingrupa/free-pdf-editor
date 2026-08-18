@@ -3,7 +3,26 @@
 A PDF editor that runs entirely in the browser. Drop a PDF in, change it, download it.
 Nothing is uploaded: no server, no account, no network call after the page loads.
 
-Live: https://roulendz.github.io/edit-pdf/
+Live: https://logingrupa.github.io/edit-pdf/
+
+## Layout
+
+```
+index.html            landing page (marketing + SEO)
+app/index.html        the editor
+assets/css/theme.css  design tokens, light and dark, shared by both pages
+assets/css/site.css   landing page styles
+assets/css/app.css    editor styles
+assets/js/theme.js    theme preference, shared by both pages
+assets/js/site.js     landing page scroll chrome
+assets/js/*.js        editor modules (store, viewer, text, exporter, util, app)
+vendor/               pdf.js, pdf-lib, fontkit, DejaVu fonts
+sitemap.xml           the two indexable URLs
+robots.txt            only takes effect on a custom domain, see the note inside
+```
+
+The editor modules resolve `vendor/` through `import.meta.url`, so they do not care where
+the HTML that loads them lives.
 
 ## What it does
 
@@ -17,6 +36,16 @@ Live: https://roulendz.github.io/edit-pdf/
 - Auto-saves to IndexedDB, so a refresh or a closed tab does not lose the work.
 - Downloads a real PDF: annotations are written as vector text and shapes with pdf-lib,
   not as a flattened image.
+
+White-out and rectangles cover text, they do not remove it. The original text objects stay
+in the file and a text extractor can still read them, so this is not redaction.
+
+## Theming
+
+`theme.css` carries both palettes in one place with `light-dark()`. `theme.js` runs
+synchronously in `<head>`, resolves the stored choice (or the OS preference) and stamps
+`data-theme="light|dark"` on `<html>` before the first paint, so CSS only needs a single
+dark selector and there is no flash. Any element with `data-theme-toggle` flips it.
 
 ## Keyboard
 
@@ -52,10 +81,10 @@ matches the downloaded file exactly.
 Any static server works. There is no build step.
 
 ```
-python -m http.server 8080
+php -S 127.0.0.1:8080
 ```
 
-Then open http://localhost:8080/. With Laragon, put the folder in `C:\laragon\www` and it
+Then open http://127.0.0.1:8080/. With Laragon, put the folder in `C:\laragon\www` and it
 is served at http://edit-pdf.test/.
 
 ## Stack

@@ -1,27 +1,12 @@
-/* ---- tokens ---------------------------------------------------------- */
-:root{
-  --bg:#0e0f14; --bg-2:#15171f; --bg-3:#1c1f2a; --line:#272b38;
-  --fg:#e8eaf2; --fg-dim:#9aa1b5; --fg-mute:#6b7288;
-  --accent:#6d5efc; --accent-fg:#fff; --accent-soft:#6d5efc26;
-  --danger:#f2545b; --ok:#3ecf8e;
-  --stage:#0a0b0f; --paper:#fff;
-  --shadow:0 10px 30px rgba(0,0,0,.45);
-  --r:10px; --rail:56px; --pages:168px; --props:236px; --top:54px;
-}
-@media (prefers-color-scheme: light){
-  :root{
-    --bg:#f6f7fb; --bg-2:#fff; --bg-3:#eef0f6; --line:#e0e3ec;
-    --fg:#171a22; --fg-dim:#5b6377; --fg-mute:#8b93a7;
-    --accent-soft:#6d5efc1a; --stage:#e9ebf2;
-    --shadow:0 8px 24px rgba(20,25,50,.12);
-  }
-}
+/* Editor layout metrics. Colour tokens live in theme.css. */
+:root{ --r:10px; --rail:56px; --pages:168px; --props:236px; --top:54px }
+
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%}
 body{
   margin:0; background:var(--bg); color:var(--fg);
-  font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font:14px/1.45 var(--font-ui);
   overflow:hidden; -webkit-font-smoothing:antialiased;
 }
 button{font:inherit;color:inherit}
@@ -34,7 +19,7 @@ svg .solid{fill:currentColor;stroke:none}
   height:var(--top); display:flex; align-items:center; gap:8px; padding:0 10px 0 12px;
   background:var(--bg-2); border-bottom:1px solid var(--line); position:relative; z-index:30;
 }
-.brand{display:flex;align-items:center;gap:8px;font-weight:650;letter-spacing:-.01em;white-space:nowrap}
+.brand{display:flex;align-items:center;gap:8px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;color:inherit;text-decoration:none}
 .brand-mark{width:22px;height:22px}
 .brand-mark rect{fill:var(--accent);stroke:none}
 .brand-mark path{stroke:#fff;stroke-width:2}
@@ -62,7 +47,7 @@ body:not([data-empty]) .zoomgrp,body:not([data-empty]) #historyGrp{display:flex}
 .btn.icon.sm svg{width:15px;height:15px}
 .btn.ghost{color:var(--fg-dim);border-color:var(--line)}
 .btn.primary{background:var(--accent);color:var(--accent-fg);font-weight:550}
-.btn.primary:hover:not(:disabled){background:#7f72ff}
+.btn.primary:hover:not(:disabled){background:var(--accent-strong)}
 .btn.primary:disabled{background:var(--bg-3);color:var(--fg-mute)}
 .btn.lg{height:40px;padding:0 20px;font-size:15px}
 .zoomval{min-width:56px;font-variant-numeric:tabular-nums;font-size:13px;color:var(--fg-dim)}
@@ -184,7 +169,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 @media (max-width:760px){
   /* the bar must never overflow: a wider bar stretches the layout viewport
      and pushes the fixed tool rail off screen */
-  .topbar{gap:4px;padding:0 6px;overflow:hidden}
+  .topbar{gap:4px;padding:0 8px;overflow:hidden}
   .grp{padding:2px}
   .zoomval,#newBtn span{display:none}
   #newBtn{width:34px;padding:0}
