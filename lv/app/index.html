@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="lv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PDF redaktors - atveriet failu un sāciet rediģēt</title>
+<meta name="description" content="Pats redaktors. Ievelciet PDF, pārrakstiet tekstu, kas jau ir lapā, parakstiet un lejupielādējiet. Fails paliek jūsu pārlūka cilnē.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://logingrupa.github.io/edit-pdf/lv/app/">
+
+<link rel="alternate" hreflang="en-GB" href="https://logingrupa.github.io/edit-pdf/app/">
+<link rel="alternate" hreflang="lv" href="https://logingrupa.github.io/edit-pdf/lv/app/">
+<link rel="alternate" hreflang="ru" href="https://logingrupa.github.io/edit-pdf/ru/app/">
+<link rel="alternate" hreflang="x-default" href="https://logingrupa.github.io/edit-pdf/app/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Edit PDF">
+<meta property="og:locale" content="lv_LV">
+<meta property="og:locale:alternate" content="en_GB">
+<meta property="og:locale:alternate" content="ru_RU">
+<meta property="og:url" content="https://logingrupa.github.io/edit-pdf/lv/app/">
+<meta property="og:title" content="Edit PDF - redaktors">
+<meta property="og:description" content="Pats redaktors. Ievelciet PDF, pārrakstiet tekstu, kas jau ir lapā, parakstiet un lejupielādējiet. Fails paliek jūsu pārlūka cilnē.">
+<meta property="og:image" content="https://logingrupa.github.io/edit-pdf/assets/img/og.jpg">
+<meta property="og:image:secure_url" content="https://logingrupa.github.io/edit-pdf/assets/img/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Edit PDF: PDF redaktors, kas strādā pārlūkā un neko neaugšupielādē.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Edit PDF - redaktors">
+<meta name="twitter:description" content="Pats redaktors. Ievelciet PDF, pārrakstiet tekstu, kas jau ir lapā, parakstiet un lejupielādējiet. Fails paliek jūsu pārlūka cilnē.">
+<meta name="twitter:image" content="https://logingrupa.github.io/edit-pdf/assets/img/og.jpg">
+<meta name="twitter:image:alt" content="Edit PDF: PDF redaktors, kas strādā pārlūkā un neko neaugšupielādē.">
+
+<link rel="icon" href="../../assets/img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../../assets/img/apple-touch-icon.png">
+<script src="../../assets/js/i18n.js"></script>
+<script src="../../assets/js/theme.js"></script>
+<link rel="stylesheet" href="../../assets/css/theme.css">
+<link rel="stylesheet" href="../../assets/css/app.css">
+</head>
+<body data-empty="1">
+
+<!--
+     ██╗  ██╗██╗███╗   ██╗ ██████╗     ██████╗ ███████╗
+     ██║ ██╔╝██║████╗  ██║██╔════╝    ██╔═══██╗██╔════╝
+     █████╔╝ ██║██╔██╗ ██║██║  ███╗   ██║   ██║█████╗
+     ██╔═██╗ ██║██║╚██╗██║██║   ██║   ██║   ██║██╔══╝
+     ██║  ██╗██║██║ ╚████║╚██████╔╝   ╚██████╔╝██║
+     ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═════╝ ╚═╝
+
+     ██╗  ██╗██╗███╗   ██╗ ██████╗ ███████╗
+     ██║ ██╔╝██║████╗  ██║██╔════╝ ██╔════╝
+     █████╔╝ ██║██╔██╗ ██║██║  ███╗███████╗
+     ██╔═██╗ ██║██║╚██╗██║██║   ██║╚════██║
+     ██║  ██╗██║██║ ╚████║╚██████╔╝███████║
+     ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝
+
+
+        JĒZUS KRISTUS NO NĀCARETES IR ĶĒNIŅU ĶĒNIŅŠ
+
+
+     "Uz Viņa tērpa, proti, sānos, ir rakstīts vārds:
+      ķēniņu Ķēniņš un kungu Kungs."
+                                        Atklāsmes grāmata 19:16
+
+     Šis redaktors ir bez maksas, jo bez maksas saņēmām arī mēs.
+                                                    Mateja 10:8
+
+     Draudze Gars un Patiesība, Lielvārde          satchurch.lv
+     SIA LOGINGRUPA                               logingrupa.lv
+
+     Tagad izlasiet pārējo pirmkodu. Nekas šeit neaugšupielādē jūsu failu.
+-->
+
+<header class="topbar">
+  <a class="brand" href="../" data-i18n-title="app.backHome" title="Atpakaļ uz Edit PDF sākumlapu">
+    <svg viewBox="0 0 32 32" class="brand-mark" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M9 22h14M11 18l7-7 3 3-7 7h-3z"/></svg>
+    <span>Edit&nbsp;PDF</span>
+  </a>
+
+  <div class="file" id="fileBox">
+    <span class="file-name" id="fileName" data-i18n-title="app.rename" title="Noklikšķiniet, lai pārdēvētu" contenteditable="false"></span>
+    <span class="file-meta" id="fileMeta"></span>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="grp" id="historyGrp">
+    <button class="btn icon" id="undoBtn" data-i18n-title="app.undo" title="Atsaukt (Ctrl+Z)" disabled><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+    <button class="btn icon" id="redoBtn" data-i18n-title="app.redo" title="Atcelt atsaukšanu (Ctrl+Shift+Z)" disabled><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
+  </div>
+
+  <div class="grp zoomgrp">
+    <button class="btn icon" id="zoomOut" data-i18n-title="app.zoomOut" title="Tālināt (Ctrl -)"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button class="btn zoomval" id="zoomVal" data-i18n-title="app.zoomReset" title="Atiestatīt mērogu">100%</button>
+    <button class="btn icon" id="zoomIn" data-i18n-title="app.zoomIn" title="Tuvināt (Ctrl +)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  </div>
+
+  <span class="save-state" id="saveState" hidden></span>
+
+  <nav class="lang" data-i18n-label="nav.language" aria-label="Valoda">
+    <a href="../../app/" hreflang="en-GB" lang="en-GB">EN</a>
+    <a href="./" hreflang="lv" lang="lv" aria-current="page">LV</a>
+    <a href="../../ru/app/" hreflang="ru" lang="ru">RU</a>
+  </nav>
+
+  <button class="btn icon theme-toggle" type="button" data-theme-toggle data-i18n-label="theme.toggle" aria-label="Pārslēgt tēmu">
+    <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.6 8.6 0 0 1 9.4 4 8.6 8.6 0 1 0 20 14.6z"/></svg>
+  </button>
+
+  <button class="btn ghost" id="newBtn" data-i18n-title="app.closeTitle" title="Aizvērt un sākt no jauna"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg><span data-i18n="app.close">Aizvērt</span></button>
+  <button class="btn primary" id="downloadBtn" disabled>
+    <svg viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></svg><span data-i18n="app.download">Lejupielādēt</span>
+  </button>
+</header>
+
+<main class="shell">
+
+  <nav class="rail" id="rail" data-i18n-label="app.tools" aria-label="Rīki">
+    <button class="tool" data-tool="edit" data-i18n-title="tool.edit" title="Rediģēt tekstu, kas jau ir lapā (E)"><svg viewBox="0 0 24 24"><path d="M4 6h13M4 11h8M4 16h5"/><path d="M14.5 19.5l5.5-5.5 2 2-5.5 5.5H14.5z"/></svg></button>
+    <button class="tool" data-tool="select" data-i18n-title="tool.select" title="Atlasīt un pārvietot (V)"><svg viewBox="0 0 24 24"><path d="M4 3l7 17 2.2-6.8L20 11 4 3z"/></svg></button>
+    <button class="tool" data-tool="text" data-i18n-title="tool.text" title="Teksts (T)"><svg viewBox="0 0 24 24"><path d="M5 7V5h14v2M12 5v14M9.5 19h5"/></svg></button>
+    <button class="tool" data-tool="pen" data-i18n-title="tool.pen" title="Zīmēt (P)"><svg viewBox="0 0 24 24"><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4.5 1.5L5 15 16.5 3.5z"/></svg></button>
+    <button class="tool" data-tool="highlight" data-i18n-title="tool.highlight" title="Izcelt (H)"><svg viewBox="0 0 24 24"><path d="M4 20h7"/><path d="M12.5 4.5l5 5-6.5 6.5H6v-5l6.5-6.5z"/></svg></button>
+    <button class="tool" data-tool="rect" data-i18n-title="tool.rect" title="Taisnstūris (R)"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg></button>
+    <button class="tool" data-tool="ellipse" data-i18n-title="tool.ellipse" title="Elipse (O)"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6.5"/></svg></button>
+    <button class="tool" data-tool="arrow" data-i18n-title="tool.arrow" title="Bulta (A)"><svg viewBox="0 0 24 24"><path d="M5 19L19 5M11 5h8v8"/></svg></button>
+    <button class="tool" data-tool="whiteout" data-i18n-title="tool.whiteout" title="Nosegt ar balto (W)"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="10" rx="1.5" class="solid"/></svg></button>
+    <button class="tool" data-tool="image" data-i18n-title="tool.image" title="Ievietot attēlu vai parakstu (I)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5L6 21"/></svg></button>
+  </nav>
+
+  <aside class="pages" id="pagesPanel" data-i18n-label="app.pages" aria-label="Lappuses">
+    <div class="pages-head"><span data-i18n="app.pages">Lappuses</span><button class="btn icon sm" id="pagesToggle" data-i18n-title="app.pagesHide" title="Paslēpt lappušu sarakstu"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button></div>
+    <div class="thumbs" id="thumbs"></div>
+  </aside>
+
+  <section class="stage" id="stage">
+    <div class="drop" id="drop">
+      <div class="drop-inner">
+        <div class="drop-icon"><svg viewBox="0 0 24 24"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+        <h1 data-i18n="drop.title">Ievelciet PDF šeit</h1>
+        <p data-i18n="drop.body">Papildiniet to un lejupielādējiet. Fails neatstāj šo ierīci - bez augšupielādes, bez servera, bez konta.</p>
+        <button class="btn primary lg" id="pickBtn" data-i18n="drop.pick">Izvēlēties PDF</button>
+        <p class="hint" data-i18n="drop.hint">Darbs tiek saglabāts šajā pārlūkā, tāpēc lapas pārlāde to nezaudēs.</p>
+      </div>
+    </div>
+    <div class="viewport" id="viewport"></div>
+  </section>
+
+  <aside class="props" id="props" data-i18n-label="app.properties" aria-label="Īpašības"></aside>
+</main>
+
+<input type="file" id="fileInput" accept="application/pdf,.pdf" hidden multiple>
+<input type="file" id="imgInput" accept="image/png,image/jpeg" hidden>
+<div class="toast" id="toast" hidden></div>
+<div class="busy" id="busy" hidden><div class="spin"></div><span id="busyText" data-i18n="msg.working">Notiek darbs...</span></div>
+
+<script src="../../vendor/pdf.min.js"></script>
+<script type="module" src="../../assets/js/app.js"></script>
+</body>
+</html>

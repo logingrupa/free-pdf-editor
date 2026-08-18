@@ -78,6 +78,14 @@ p{margin:0}
   color:var(--fg-dim);cursor:pointer;transition:color .15s,border-color .15s;
 }
 .icon-button:hover{color:var(--fg);border-color:var(--fg-mute)}
+.lang{display:flex;align-items:center;gap:2px;flex:none;padding:3px;background:var(--bg-2);border:1px solid var(--line);border-radius:9px}
+.lang a{
+  min-width:30px;height:30px;display:grid;place-items:center;padding:0 6px;border-radius:6px;
+  color:var(--fg-mute);text-decoration:none;font:600 11.5px/1 var(--font-mono);letter-spacing:.08em;
+  transition:color .15s,background .15s;
+}
+.lang a:hover{color:var(--fg);background:var(--bg-3)}
+.lang a[aria-current]{color:var(--fg);background:var(--bg-3)}
 .icon-button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---- hero ------------------------------------------------------------ */
@@ -324,6 +332,9 @@ tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
 }
 @media (max-width:660px){
   .nav-links{display:none}
+  /* the bar has no room for the nav CTA once the language group is in;
+     the hero repeats it a screen-height below */
+  .nav-inner>.button-primary{display:none}
   .cards,.steps{grid-template-columns:1fr}
   .mock-props{display:none}
   .mock-body{min-height:280px}

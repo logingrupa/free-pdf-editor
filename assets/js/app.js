@@ -5,6 +5,7 @@ import * as V from './viewer.js';
 import { buildPdf } from './exporter.js';
 import { saveBlob, readAsDataURL } from './util.js';
 
+const t = window.i18n.t;
 const $ = id => document.getElementById(id);
 const body = document.body;
 const ui = {
@@ -31,7 +32,7 @@ function toast(msg) {
   }, 2600);
 }
 
-function busy(on, text = 'Working...') {
+function busy(on, text = t('msg.working')) {
   ui.busyText.textContent = text;
   ui.busy.hidden = !on;
 }
@@ -42,8 +43,8 @@ const hhmm = d => `${two(d.getHours())}:${two(d.getMinutes())}`;
 /* ---- opening files --------------------------------------------------- */
 async function openFiles(files) {
   const pdfs = [...files].filter(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
-  if (!pdfs.length) { toast('That is not a PDF'); return; }
-  busy(true, 'Reading PDF...');
+  if (!pdfs.length) { toast(t('msg.notPdf')); return; }
+  busy(true, t('msg.reading'));
   try {
     for (const file of pdfs) {
       const { src, pages } = await V.buildSource(file.name, await file.arrayBuffer());
@@ -52,12 +53,12 @@ async function openFiles(files) {
         S.setDoc({ fileName: file.name, sources: [src], pages });
       } else {
         S.addSource(src, pages);
-        toast(`Added ${pages.length} page${pages.length > 1 ? 's' : ''} from ${file.name}`);
+        toast(t('msg.added', { n: pages.length, name: file.name }));
       }
     }
   } catch (e) {
     console.error(e);
-    toast('Could not open that PDF');
+    toast(t('msg.openFailed'));
   } finally {
     busy(false);
   }
@@ -68,7 +69,7 @@ async function restoreSaved() {
   if (!saved || !saved.pages || !saved.pages.length) return;
   body.removeAttribute('data-empty');
   S.setDoc(saved);
-  toast(`Restored ${saved.fileName} from ${hhmm(new Date(saved.at))}`);
+  toast(t('msg.restored', { name: saved.fileName, time: hhmm(new Date(saved.at)) }));
 }
 
 /* ---- top bar --------------------------------------------------------- */
@@ -78,7 +79,7 @@ function paintChrome() {
   ui.undoBtn.disabled = !S.canUndo();
   ui.redoBtn.disabled = !S.canRedo();
   ui.fileName.textContent = S.state.fileName || '';
-  ui.fileMeta.textContent = has ? `${S.state.pages.length} page${S.state.pages.length > 1 ? 's' : ''}` : '';
+  ui.fileMeta.textContent = has ? t('msg.pageCount', { n: S.state.pages.length }) : '';
   ui.zoomVal.textContent = Math.round(S.state.zoom * 100) + '%';
   if (!has) body.setAttribute('data-empty', '1');
 }
@@ -108,22 +109,22 @@ $('pickBtn').onclick = () => ui.fileInput.click();
 $('pagesToggle').onclick = () => body.setAttribute('data-pages', body.dataset.pages === 'off' ? 'on' : 'off');
 
 $('newBtn').onclick = () => {
-  if (!confirm('Close this document? Saved work in this browser is cleared.')) return;
+  if (!confirm(t('msg.closeConfirm'))) return;
   S.closeDoc();
   body.setAttribute('data-empty', '1');
 };
 
 ui.downloadBtn.onclick = async () => {
   V.closeEditor(true);
-  busy(true, 'Building PDF...');
+  busy(true, t('msg.building'));
   try {
     const blob = await buildPdf();
     const name = S.state.fileName.replace(/\.pdf$/i, '') + '-edited.pdf';
     saveBlob(blob, name);
-    toast('Downloaded ' + name);
+    toast(t('msg.downloaded', { name }));
   } catch (e) {
     console.error(e);
-    toast('Export failed: ' + e.message);
+    toast(t('msg.exportFailed', { err: e.message }));
   } finally {
     busy(false);
   }
@@ -136,7 +137,7 @@ ui.imgInput.onchange = async e => {
   if (!f) return;
   V.setPendingImage(await readAsDataURL(f));
   S.setTool('image');
-  toast('Click on the page to place it');
+  toast(t('msg.placeImage'));
 };
 
 /* ---- drag and drop --------------------------------------------------- */
@@ -180,7 +181,7 @@ const FIELDS = {
   edit: [],
 };
 
-const TYPE_NAME = { etext: 'page text', text: 'text box', edit: 'Edit text', select: 'Select' };
+const typeName = type => t('type.' + type);
 
 function target() {
   const a = S.annotById(S.state.sel);
@@ -188,9 +189,9 @@ function target() {
 }
 
 function setProp(patch) {
-  const t = target();
-  if (t.annot) S.updateAnnot(t.obj.id, patch);
-  else Object.assign(t.obj, patch);
+  const cur = target();
+  if (cur.annot) S.updateAnnot(cur.obj.id, patch);
+  else Object.assign(cur.obj, patch);
   paintProps();
 }
 
@@ -218,11 +219,11 @@ function swatches(list, current, onPick, withNone) {
     b.onclick = () => onPick(value);
     wrap.append(b);
   };
-  if (withNone) add('none', 'No fill', 'background:repeating-linear-gradient(45deg,#8884 0 4px,transparent 4px 8px)');
+  if (withNone) add('none', t('prop.noFill'), 'background:repeating-linear-gradient(45deg,#8884 0 4px,transparent 4px 8px)');
   list.forEach(c => add(c, c, `background:${c}`));
   const custom = document.createElement('button');
   custom.className = 'sw custom';
-  custom.title = 'Custom colour';
+  custom.title = t('prop.customColour');
   const inp = document.createElement('input');
   inp.type = 'color';
   inp.value = list.includes(current) || !current || current === 'none' ? '#6d5efc' : current;
@@ -248,10 +249,11 @@ function slider(min, max, step, value, unit, onInput) {
 function segmented(options, isPressed, onPick) {
   const wrap = document.createElement('div');
   wrap.className = 'seg';
-  options.forEach(([value, label, style]) => {
+  options.forEach(([value, label, style, title]) => {
     const b = document.createElement('button');
     b.innerHTML = label;
     if (style) b.style.cssText = style;
+    if (title) b.title = title;
     b.setAttribute('aria-pressed', String(isPressed(value)));
     b.onclick = () => onPick(value);
     wrap.append(b);
@@ -260,64 +262,68 @@ function segmented(options, isPressed, onPick) {
 }
 
 function paintProps() {
-  const t = target();
+  const cur = target();
   const p = ui.props;
   p.textContent = '';
   if (!S.hasDoc()) return;
 
   const title = document.createElement('h3');
-  title.textContent = t.annot ? 'Selected ' + (TYPE_NAME[t.type] || t.type) : (TYPE_NAME[t.type] || t.type);
+  title.textContent = cur.annot ? t('prop.selected', { name: typeName(cur.type) }) : typeName(cur.type);
   p.append(title);
 
-  const fields = FIELDS[t.type] || [];
-  const o = t.obj;
+  const fields = FIELDS[cur.type] || [];
+  const o = cur.obj;
+  const shape = cur.type === 'rect' || cur.type === 'ellipse';
 
   for (const f of fields) {
-    if (f === 'color') p.append(row('Colour', swatches(COLORS, o.color, v => setProp({ color: v }))));
+    if (f === 'color') p.append(row(t('prop.colour'), swatches(COLORS, o.color, v => setProp({ color: v }))));
     if (f === 'fill') {
-      const list = t.type === 'highlight' ? HIGHLIGHTS : COLORS;
-      p.append(row(t.type === 'rect' || t.type === 'ellipse' ? 'Fill' : 'Colour',
-        swatches(list, o.fill, v => setProp({ fill: v }), t.type === 'rect' || t.type === 'ellipse')));
+      const list = cur.type === 'highlight' ? HIGHLIGHTS : COLORS;
+      p.append(row(shape ? t('prop.fill') : t('prop.colour'),
+        swatches(list, o.fill, v => setProp({ fill: v }), shape)));
     }
-    if (f === 'width') p.append(row('Stroke', slider(0.5, 12, 0.5, o.width, ' pt', v => setProp({ width: v }))));
-    if (f === 'opacity') p.append(row('Opacity', slider(0.1, 1, 0.05, o.opacity, '', v => setProp({ opacity: v }))));
-    if (f === 'size') p.append(row('Size', slider(6, 72, 1, o.size, ' pt', v => setProp({ size: v }))));
+    if (f === 'width') p.append(row(t('prop.stroke'), slider(0.5, 12, 0.5, o.width, ' pt', v => setProp({ width: v }))));
+    if (f === 'opacity') p.append(row(t('prop.opacity'), slider(0.1, 1, 0.05, o.opacity, '', v => setProp({ opacity: v }))));
+    if (f === 'size') p.append(row(t('prop.size'), slider(6, 72, 1, o.size, ' pt', v => setProp({ size: v }))));
     if (f === 'face') {
-      p.append(row('Style', segmented(
-        [['b', '<b>B</b>', 'font-weight:700'], ['i', '<i>I</i>', 'font-style:italic']],
+      p.append(row(t('prop.style'), segmented(
+        [['b', `<b>${t('prop.boldLetter')}</b>`, 'font-weight:700', t('prop.bold')],
+          ['i', `<i>${t('prop.italicLetter')}</i>`, 'font-style:italic', t('prop.italic')]],
         v => (v === 'b' ? !!o.bold : !!o.italic),
         v => setProp(v === 'b' ? { bold: !o.bold } : { italic: !o.italic }),
       )));
     }
     if (f === 'family') {
-      p.append(row('Font', segmented(
-        [['sans', 'Aa', 'font-family:ui-sans-serif,sans-serif'],
-          ['serif', 'Aa', 'font-family:Georgia,serif'],
-          ['mono', 'Aa', 'font-family:ui-monospace,monospace']],
+      p.append(row(t('prop.font'), segmented(
+        [['sans', 'Aa', 'font-family:ui-sans-serif,sans-serif', 'Sans'],
+          ['serif', 'Aa', 'font-family:Georgia,serif', 'Serif'],
+          ['mono', 'Aa', 'font-family:ui-monospace,monospace', 'Mono']],
         v => v === (o.family || 'sans'),
         v => setProp({ family: v }),
       )));
     }
     if (f === 'align') {
-      p.append(row('Align', segmented(
-        [['left', 'L'], ['center', 'C'], ['right', 'R']],
+      p.append(row(t('prop.align'), segmented(
+        [['left', t('prop.alignLeftLetter'), '', t('prop.alignLeft')],
+          ['center', t('prop.alignCenterLetter'), '', t('prop.alignCenter')],
+          ['right', t('prop.alignRightLetter'), '', t('prop.alignRight')]],
         v => v === o.align,
         v => setProp({ align: v }),
       )));
     }
   }
 
-  if (t.annot) {
+  if (cur.annot) {
     const del = document.createElement('button');
     del.className = 'btn wide del';
-    del.textContent = 'Delete';
-    del.onclick = () => S.removeAnnot(t.obj.id);
+    del.textContent = t('prop.delete');
+    del.onclick = () => S.removeAnnot(cur.obj.id);
     p.append(row('', del));
-    if (t.type === 'text' || t.type === 'etext') {
+    if (cur.type === 'text' || cur.type === 'etext') {
       const ed = document.createElement('button');
       ed.className = 'btn wide';
-      ed.textContent = 'Edit text';
-      ed.onclick = () => V.openEditor(S.pageById(t.obj.page), t.obj, false);
+      ed.textContent = t('prop.editText');
+      ed.onclick = () => V.openEditor(S.pageById(cur.obj.page), cur.obj, false);
       p.append(row('', ed));
     }
   }
@@ -326,13 +332,13 @@ function paintProps() {
 
   const tip = document.createElement('div');
   tip.className = 'tipbox';
-  tip.textContent = t.annot
-    ? 'Drag to move, side handles to set the wrapping width. Delete key removes it.'
-    : t.type === 'edit'
-      ? 'Click any line of text on the page to rewrite it. The original line is covered with its own background colour.'
-      : t.type === 'select'
-        ? 'Click something on the page to move or restyle it. Drop another PDF to append its pages.'
-        : 'Drag on the page to draw. Press E to go back to editing text.';
+  tip.textContent = cur.annot
+    ? t('tip.annot')
+    : cur.type === 'edit'
+      ? t('tip.edit')
+      : cur.type === 'select'
+        ? t('tip.select')
+        : t('tip.draw');
   p.append(tip);
 }
 
@@ -358,15 +364,15 @@ function paintThumbs() {
     n.textContent = i + 1;
     const acts = document.createElement('div');
     acts.className = 'thumb-acts';
-    acts.innerHTML = `<button data-a="rotL" title="Rotate left">${ICON.rotL}</button>`
-      + `<button data-a="rotR" title="Rotate right">${ICON.rotR}</button>`
-      + `<button data-a="del" title="Delete page">${ICON.del}</button>`;
+    acts.innerHTML = `<button data-a="rotL" title="${t('thumb.rotL')}">${ICON.rotL}</button>`
+      + `<button data-a="rotR" title="${t('thumb.rotR')}">${ICON.rotR}</button>`
+      + `<button data-a="del" title="${t('thumb.del')}">${ICON.del}</button>`;
     acts.onclick = e => {
       const b = e.target.closest('button');
       if (!b) return;
       e.stopPropagation();
       if (b.dataset.a === 'del') {
-        if (S.state.pages.length === 1) { toast('That is the last page'); return; }
+        if (S.state.pages.length === 1) { toast(t('msg.lastPage')); return; }
         S.deletePage(p.id);
       } else S.rotatePage(p.id, b.dataset.a === 'rotL' ? -1 : 1);
     };
@@ -412,9 +418,9 @@ S.on('sel', () => paintProps());
 S.on('tool', () => { paintRail(); paintProps(); });
 S.on('history', () => paintChrome());
 S.on('zoom', () => paintChrome());
-S.on('dirty', () => { ui.saveState.hidden = false; ui.saveState.classList.remove('on'); ui.saveState.textContent = 'Saving...'; });
-S.on('saved', at => { ui.saveState.classList.add('on'); ui.saveState.textContent = 'Saved ' + hhmm(new Date(at)); });
-S.on('saveerror', () => { ui.saveState.classList.remove('on'); ui.saveState.textContent = 'Not saved'; });
+S.on('dirty', () => { ui.saveState.hidden = false; ui.saveState.classList.remove('on'); ui.saveState.textContent = t('save.saving'); });
+S.on('saved', at => { ui.saveState.classList.add('on'); ui.saveState.textContent = t('save.saved', { time: hhmm(new Date(at)) }); });
+S.on('saveerror', () => { ui.saveState.classList.remove('on'); ui.saveState.textContent = t('save.failed'); });
 
 /* ---- boot ------------------------------------------------------------ */
 V.init(ui.viewport);

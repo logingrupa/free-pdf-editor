@@ -1,4 +1,5 @@
 // Theme preference, shared by the landing page and the editor.
+// Runs after i18n.js, which supplies the two toggle labels.
 // Loaded synchronously in <head> so the first paint already has the right
 // palette. Only ever stamps a resolved value, so CSS needs one dark selector.
 (function () {
@@ -24,7 +25,7 @@
   }
 
   function labelToggles(theme) {
-    var label = 'Switch to ' + (theme === 'dark' ? 'light' : 'dark') + ' theme';
+    var label = window.i18n.t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark');
     var toggles = document.querySelectorAll('[data-theme-toggle]');
     for (var i = 0; i < toggles.length; i++) {
       toggles[i].setAttribute('aria-label', label);

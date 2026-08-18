@@ -55,6 +55,14 @@ body:not([data-empty]) .zoomgrp,body:not([data-empty]) #historyGrp{display:flex}
 body:not([data-empty]) #newBtn{display:inline-flex}
 .save-state{font-size:12px;color:var(--fg-mute);white-space:nowrap;margin:0 4px}
 .save-state.on{color:var(--ok)}
+.lang{display:flex;align-items:center;gap:2px;flex:none;background:var(--bg-3);border-radius:9px;padding:3px}
+.lang a{
+  min-width:27px;height:26px;display:grid;place-items:center;padding:0 5px;border-radius:7px;
+  color:var(--fg-mute);text-decoration:none;font:600 11px/1 var(--font-ui);letter-spacing:.05em;
+  transition:color .12s,background .12s;
+}
+.lang a:hover{color:var(--fg);background:var(--bg-2)}
+.lang a[aria-current]{color:var(--fg);background:var(--bg-2)}
 
 /* ---- shell ----------------------------------------------------------- */
 .shell{display:flex;height:calc(100% - var(--top));min-height:0}
@@ -170,7 +178,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   /* the bar must never overflow: a wider bar stretches the layout viewport
      and pushes the fixed tool rail off screen */
   .topbar{gap:4px;padding:0 8px;overflow:hidden}
-  .grp{padding:2px}
+  .grp,.lang{padding:2px}
+  .lang a{min-width:23px;height:24px;padding:0 3px;font-size:10.5px;letter-spacing:0}
   .zoomval,#newBtn span{display:none}
   #newBtn{width:34px;padding:0}
   .file{margin-left:2px;padding-left:8px}
