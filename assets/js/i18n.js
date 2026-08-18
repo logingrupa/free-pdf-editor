@@ -29,6 +29,7 @@
       'app.unpin': 'Let the tab follow the work',
       'app.layers': 'Layers',
       'app.objectActions': 'Object actions',
+      'app.pageActions': 'Page actions',
       'app.layersHint': 'Drag to restack. The top row draws last.',
       'app.layersEmpty': 'Nothing on this page yet.',
       'app.layersPage': 'Page {n}',
@@ -126,6 +127,7 @@
       'thumb.rotL': 'Rotate left',
       'thumb.rotR': 'Rotate right',
       'thumb.del': 'Delete page',
+      'thumb.dup': 'Duplicate page',
     },
 
     lv: {
@@ -153,6 +155,7 @@
       'app.unpin': 'Ļaut cilnei sekot darbam',
       'app.layers': 'Slāņi',
       'app.objectActions': 'Objekta darbības',
+      'app.pageActions': 'Lappuses darbības',
       'app.layersHint': 'Velciet, lai mainītu kārtību. Augšējā rinda zīmējas pēdējā.',
       'app.layersEmpty': 'Šajā lappusē vēl nekā nav.',
       'app.layersPage': '{n}. lappuse',
@@ -251,6 +254,7 @@
       'thumb.rotL': 'Pagriezt pa kreisi',
       'thumb.rotR': 'Pagriezt pa labi',
       'thumb.del': 'Dzēst lappusi',
+      'thumb.dup': 'Dublēt lappusi',
     },
 
     ru: {
@@ -278,6 +282,7 @@
       'app.unpin': 'Пусть вкладка следует за работой',
       'app.layers': 'Слои',
       'app.objectActions': 'Действия с объектом',
+      'app.pageActions': 'Действия со страницей',
       'app.layersHint': 'Перетащите, чтобы изменить порядок. Верхняя строка рисуется последней.',
       'app.layersEmpty': 'На этой странице пока ничего нет.',
       'app.layersPage': 'Страница {n}',
@@ -382,6 +387,7 @@
       'thumb.rotL': 'Повернуть влево',
       'thumb.rotR': 'Повернуть вправо',
       'thumb.del': 'Удалить страницу',
+      'thumb.dup': 'Дублировать страницу',
     },
   };
 

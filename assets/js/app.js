@@ -3,6 +3,8 @@
 import * as S from './store.js';
 import * as V from './viewer.js';
 import { buildPdf } from './exporter.js';
+import { ICON } from './icons.js';
+import { openMenu, onLongPress } from './menu.js';
 import { LINE_H } from './text.js';
 import { saveBlob, readAsDataURL } from './util.js';
 
@@ -435,6 +437,7 @@ function paintLayers() {
     const row = document.createElement('div');
     row.className = 'layer';
     row.draggable = true;
+    row.tabIndex = 0;
     row.setAttribute('aria-pressed', String(a.id === S.state.sel));
     const kind = document.createElement('span');
     kind.className = 'layer-kind';
@@ -444,6 +447,13 @@ function paintLayers() {
     name.textContent = layerLabel(a);
     row.append(kind, name);
     row.onclick = () => S.select(a.id);
+    row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } };
+    const menu = (x, y) => {
+      S.select(a.id);
+      openMenu({ x, y, items: V.objectItems(a), label: t('app.objectActions'), opener: row });
+    };
+    row.addEventListener('contextmenu', e => { e.preventDefault(); menu(e.clientX, e.clientY); });
+    onLongPress(row, menu);
     row.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', String(i)));
     row.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); row.classList.add('drag-over'); });
     row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
@@ -544,12 +554,6 @@ function paintProps() {
 }
 
 /* ---- page thumbnails ------------------------------------------------- */
-const ICON = {
-  rotL: '<svg viewBox="0 0 24 24"><path d="M3 8h10a5 5 0 0 1 0 10H8"/><path d="M6 5L3 8l3 3"/></svg>',
-  rotR: '<svg viewBox="0 0 24 24"><path d="M21 8H11a5 5 0 0 0 0 10h5"/><path d="M18 5l3 3-3 3"/></svg>',
-  del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
-};
-
 let thumbQueue = Promise.resolve();
 function paintThumbs() {
   ui.thumbs.textContent = '';
@@ -557,6 +561,7 @@ function paintThumbs() {
     const d = document.createElement('div');
     d.className = 'thumb';
     d.draggable = true;
+    d.tabIndex = 0;
     d.dataset.index = i;
     const c = document.createElement('canvas');
     c.style.aspectRatio = `${V.dispW(p)} / ${V.dispH(p)}`;
@@ -579,6 +584,10 @@ function paintThumbs() {
     };
     d.append(c, n, acts);
     d.onclick = () => V.scrollToPage(p.id);
+    d.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); d.click(); } };
+    const menu = (x, y) => openMenu({ x, y, items: V.pageItems(p), label: t('app.pageActions'), opener: d });
+    d.addEventListener('contextmenu', e => { e.preventDefault(); menu(e.clientX, e.clientY); });
+    onLongPress(d, menu);
     d.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', String(i)));
     d.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); d.classList.add('drag-over'); });
     d.addEventListener('dragleave', () => d.classList.remove('drag-over'));

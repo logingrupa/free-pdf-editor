@@ -195,6 +195,23 @@ export function deletePage(id) {
   changed();
 }
 
+/** Copy a page and the work on it, straight after the original. */
+export function duplicatePage(id) {
+  const p = pageById(id);
+  if (!p) return;
+  commit();
+  const copy = { ...JSON.parse(JSON.stringify(p)), id: uid() };
+  state.pages.splice(state.pages.indexOf(p) + 1, 0, copy);
+  for (const a of state.annots.filter(x => x.page === id)) {
+    const c = { ...JSON.parse(JSON.stringify(a)), id: uid(), page: copy.id };
+    // a replacement names the printed lines it covers, and those are per page
+    if (c.src && Array.isArray(c.src)) c.src = c.src.map(s => copy.id + s.slice(s.indexOf(':')));
+    state.annots.push(c);
+  }
+  emit('doc');
+  changed();
+}
+
 export function movePage(from, to) {
   if (from === to) return;
   commit();

@@ -1,8 +1,10 @@
 // Page rendering (pdf.js canvas), the SVG annotation layer, the existing-text
 // layer and all pointer work.
 
-import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, discardAnnot, removeAnnot, duplicateAnnot, restackAnnot, touch } from './store.js';
+import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, discardAnnot, removeAnnot, duplicateAnnot, restackAnnot, rotatePage, deletePage, duplicatePage, touch } from './store.js';
 import { uid, clamp, invert, mul } from './util.js';
+import { ICON } from './icons.js';
+import { openMenu, closeMenu, onLongPress } from './menu.js';
 import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf, matchFace, warmFaces, padBox, hasBox, boxPath } from './text.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -444,14 +446,6 @@ function drawSelection(p, host) {
 
 /* ---- selection toolbar ------------------------------------------------ */
 // HTML, not SVG: the buttons keep their size and their touch area at any zoom.
-const BAR_ICON = {
-  edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L18.5 9.5l-4-4L4 16v4z"/><path d="M14.5 5.5l4 4"/></svg>',
-  copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>',
-  up: '<svg viewBox="0 0 24 24"><path d="M12 20V5M7 10l5-5 5 5"/></svg>',
-  down: '<svg viewBox="0 0 24 24"><path d="M12 4v15M17 14l-5 5-5-5"/></svg>',
-  del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
-};
-
 let bar = null;        // the one toolbar, moved from page to page
 let barFor = '';       // what it was built for
 let barMuted = false;  // a running gesture owns the screen instead
@@ -465,7 +459,7 @@ function barButton(act, label, run) {
   b.dataset.act = act;
   b.title = label;
   b.setAttribute('aria-label', label);
-  b.innerHTML = BAR_ICON[act];
+  b.innerHTML = ICON[act];
   b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); run(); });
   return b;
 }
@@ -526,6 +520,49 @@ function muteBar(on) {
   updateBar();
 }
 
+/* ---- context menus ---------------------------------------------------- */
+/** What can be done to one object, in the menu and on the toolbar alike. */
+export function objectItems(a) {
+  const items = [];
+  if (a.type === 'text' || a.type === 'etext') {
+    items.push({ icon: ICON.edit, label: T('prop.editText'), run: () => openEditor(pageById(a.page), annotById(a.id), false) });
+  }
+  items.push(
+    { icon: ICON.copy, label: T('prop.duplicate'), run: () => duplicateAnnot(a.id) },
+    { icon: ICON.up, label: T('prop.forward'), run: () => restackAnnot(a.id, 1) },
+    { icon: ICON.down, label: T('prop.backward'), run: () => restackAnnot(a.id, -1) },
+    'sep',
+    { icon: ICON.del, label: T('prop.delete'), danger: true, run: () => removeAnnot(a.id) },
+  );
+  return items;
+}
+
+/** What can be done to one page. */
+export function pageItems(p) {
+  return [
+    { icon: ICON.rotL, label: T('thumb.rotL'), run: () => rotatePage(p.id, -1) },
+    { icon: ICON.rotR, label: T('thumb.rotR'), run: () => rotatePage(p.id, 1) },
+    { icon: ICON.copy, label: T('thumb.dup'), run: () => duplicatePage(p.id) },
+    'sep',
+    {
+      icon: ICON.del, label: T('thumb.del'), danger: true,
+      disabled: state.pages.length < 2, run: () => deletePage(p.id),
+    },
+  ];
+}
+
+/** Right click, or a held touch, on the page: the object under it, else the page. */
+function onMenu(x, y, target, p) {
+  const hit = target && target.closest ? target.closest('.an') : null;
+  if (hit) {
+    select(hit.dataset.id);
+    paintOverlay(p.id);
+    openMenu({ x, y, items: objectItems(annotById(hit.dataset.id)), label: T('app.objectActions') });
+  } else {
+    openMenu({ x, y, items: pageItems(p), label: T('app.pageActions') });
+  }
+}
+
 function paintOverlay(pageId) {
   const rec = wraps.get(pageId);
   if (!rec) return;
@@ -575,6 +612,7 @@ const io = new IntersectionObserver(entries => {
 
 function buildAll() {
   closeEditor(false);
+  closeMenu();
   if (bar) { bar.remove(); bar = null; barFor = ''; }
   for (const rec of wraps.values()) io.unobserve(rec.wrap);
   wraps.clear();
@@ -601,6 +639,12 @@ function buildAll() {
     paintOverlay(p.id);
     svg.addEventListener('pointerdown', ev => onDown(ev, p));
     svg.addEventListener('dblclick', ev => onDblClick(ev, p));
+    svg.addEventListener('contextmenu', ev => { ev.preventDefault(); onMenu(ev.clientX, ev.clientY, ev.target, p); });
+    onLongPress(svg, (x, y, ev) => {
+      if (state.tool !== 'select' && state.tool !== 'edit') return;   // a drawing gesture is running
+      if (endGesture) endGesture();
+      onMenu(x, y, ev.target, p);
+    });
     // a placed image is draggable to the browser, which would hijack a resize
     svg.addEventListener('dragstart', ev => ev.preventDefault());
     io.observe(wrap);
