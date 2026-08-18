@@ -16,7 +16,7 @@ assets/css/app.css    editor styles
 assets/js/theme.js    theme preference, shared by both pages
 assets/js/site.js     landing page scroll chrome
 assets/js/*.js        editor modules (store, viewer, text, exporter, util, app)
-vendor/               pdf.js, pdf-lib, fontkit, DejaVu fonts
+vendor/               pdf.js, pdf-lib, fontkit, Liberation fonts
 assets/img/og.jpg     social card, 1200x630 (JPEG: WhatsApp is unreliable with PNG)
 sitemap.xml           the two indexable URLs
 robots.txt            only takes effect on a custom domain, see the note inside
@@ -80,9 +80,11 @@ PDF text is not editable in place: glyphs are drawn from embedded, often subset 
 private encodings. Rewriting a content stream in the browser would need the original font
 programs re-encoded, which is not something a static page can do safely. So this editor
 does what desktop tools do: it masks the original line and draws new text over it, using a
-bundled Unicode font (DejaVu Sans, Serif and Mono, full Latin Extended plus Cyrillic and
-Greek). The line breaking used on screen is the same code the exporter uses, so the preview
-matches the downloaded file exactly.
+bundled Unicode font (Liberation Sans, Serif and Mono, metric compatible with Arial,
+Times New Roman and Courier New, full Latin Extended plus Cyrillic and Greek), so the
+replacement keeps the advance widths of the line it covers. The line breaking used on
+screen is the same code the exporter uses, so the preview matches the downloaded file
+exactly.
 
 ## Running locally
 
@@ -99,5 +101,5 @@ is served at http://edit-pdf.test/.
 
 - [pdf.js](https://mozilla.github.io/pdf.js/) for rendering and text extraction
 - [pdf-lib](https://pdf-lib.js.org/) plus fontkit for writing the output PDF
-- DejaVu fonts (Bitstream Vera licence)
+- Liberation fonts (SIL Open Font License 1.1)
 - No framework, no bundler, no dependencies at runtime beyond the vendored files

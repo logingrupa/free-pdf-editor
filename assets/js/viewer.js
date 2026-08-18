@@ -3,7 +3,7 @@
 
 import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, discardAnnot, touch } from './store.js';
 import { uid, clamp, invert, mul } from './util.js';
-import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf } from './text.js';
+import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf, matchFace } from './text.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -256,12 +256,13 @@ async function replaceLine(p, ln) {
   const b = lineBox(ln);
   const { bg, fg } = sampleColors(p, rec, b);
   const family = FAMILIES.includes(ln.fam) ? ln.fam : 'sans';
-  const f = await loadFont(fontKey({ family, bold: false, italic: false }));
+  const { bold, italic } = await matchFace(family, ln.str, ln.size, ln.x2 - ln.x);
+  const f = await loadFont(fontKey({ family, bold, italic }));
   const a = addAnnot({
     page: p.id, type: 'etext', src: ln.id,
     mx: b.x, my: b.y, mw: b.w, mh: b.h, bg,
     x: ln.x, y: ln.y - ascentOf(f, ln.size), w: Math.max(ln.size * 4, p.w - ln.x - 6),
-    text: ln.str, size: ln.size, color: fg, family, bold: false, italic: false, align: 'left',
+    text: ln.str, size: ln.size, color: fg, family, bold, italic, align: 'left',
   });
   select(a.id);
   paintOverlay(p.id);
