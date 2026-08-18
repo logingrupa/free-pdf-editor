@@ -21,7 +21,7 @@ export const state = {
     arrow:     { color: '#e11d48', width: 2.5 },
     whiteout:  { fill: '#ffffff' },
     text:      {
-      color: '#111827', size: 14, family: 'sans', bold: false, italic: false, align: 'left',
+      color: '#111827', size: 14, family: 'sans', weight: 400, italic: false, align: 'left',
       pad: 4, boxFill: 'none', boxColor: 'none', boxWidth: 0, radius: 0, shadow: 0, shadowColor: '#111827',
     },
   },

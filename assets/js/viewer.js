@@ -5,7 +5,7 @@ import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit
 import { uid, clamp, invert, mul, turn, canTurn, rotCenter } from './util.js';
 import { ICON } from './icons.js';
 import { openMenu, closeMenu, onLongPress } from './menu.js';
-import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, loadFaces, readyFaces, layout, ascentOf, styleAt, paraStyle, padBox, hasBox, boxPath, matchFace, warmFaces } from './text.js';
+import { METRIC, LINE_H, cssFamily, fontKey, loadFont, loadFaces, readyFaces, layout, ascentOf, styleAt, paraStyle, padBox, hasBox, boxPath, matchFace, warmFaces } from './text.js';
 import { styleRun, styleParas, paraRange, reflowRuns } from './runs.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -124,8 +124,6 @@ function pieceEl(pc, ln, off, fill) {
   const t = el('text', {
     x: pc.x + off, y: ln.y + off, fill: fill || pc.style.color,
     'font-family': cssFamily(key), 'font-size': pc.style.size,
-    'font-weight': pc.style.bold ? 700 : 400,
-    'font-style': pc.style.italic ? 'italic' : 'normal',
     'pointer-events': 'none', 'xml:space': 'preserve',
   });
   t.textContent = pc.text;
@@ -415,7 +413,7 @@ function classifyFont(p, ln) {
     const usable = same.filter(l => !l.locked && l.str.trim().length >= 8);
     const pool = usable.length ? usable : (same.length ? same : [ln]);
     const sample = pool.reduce((a, b) => (b.str.length > a.str.length ? b : a));
-    const suggested = FAMILIES.includes(sample.fam) ? sample.fam : 'sans';
+    const suggested = METRIC.includes(sample.fam) ? sample.fam : 'sans';
     faceCache.set(key, matchFace(suggested, sample.str, sample.size, sample.x2 - sample.x));
   }
   return faceCache.get(key);
@@ -426,14 +424,14 @@ async function replaceLine(p, blk) {
   const rec = wraps.get(p.id);
   const b = blk.box;
   const { bg, fg } = sampleColors(p, rec, b);
-  const { family, bold, italic } = await classifyFont(p, blk);
-  const f = await loadFont(fontKey({ family, bold, italic }));
+  const { family, weight, italic } = await classifyFont(p, blk);
+  const f = await loadFont(fontKey({ family, weight, italic }));
   const a = addAnnot({
     page: p.id, type: 'etext', src: blk.ids,
     mx: b.x, my: b.y, mw: b.w, mh: b.h, bg,
     x: blk.x, y: blk.y - ascentOf(f, blk.size),
     w: Math.max(blk.w + (blk.align === 'justify' ? 0 : blk.size * 0.6), blk.size * 4),
-    text: blk.str, size: blk.size, color: fg, family, bold, italic,
+    text: blk.str, size: blk.size, color: fg, family, weight, italic,
     align: blk.align, lh: blk.lh,
   });
   select(a.id);
@@ -446,7 +444,7 @@ function paintTextLayer(p, host) {
   const lines = lineCache.get(p.id);
   if (!lines) { getLines(p).then(() => paintOverlay(p.id)); return; }
   // a click measures against these faces, so fetch them while a line is chosen
-  warmFaces(new Set(lines.map(ln => (FAMILIES.includes(ln.fam) ? ln.fam : 'sans'))));
+  warmFaces(new Set(lines.map(ln => (METRIC.includes(ln.fam) ? ln.fam : 'sans'))));
   const used = new Set(annotsOf(p.id).flatMap(a => (a.src ? [].concat(a.src) : [])));
   const layer = el('g', { class: 'tlayer' });
   for (const blk of getBlocks(p, lines)) {
@@ -1243,8 +1241,6 @@ export function openEditor(p, a, isNew) {
     st.fontFamily = `${cssFamily(key)}, sans-serif`;
     st.fontSize = a.size + 'px';
     st.lineHeight = a.lh || LINE_H;
-    st.fontWeight = a.bold ? 700 : 400;
-    st.fontStyle = a.italic ? 'italic' : 'normal';
     st.color = a.color;
     st.textAlign = a.align;
     document.body.append(ta);

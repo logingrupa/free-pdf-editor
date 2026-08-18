@@ -67,7 +67,6 @@ function buildItem(it) {
  * opener is the element that gets the focus back, when there is one.
  */
 export function openMenu({ x, y, items, label, opener = null }) {
-  closeMenu();
   const node = document.createElement('div');
   node.className = 'menu';
   node.setAttribute('role', 'menu');
@@ -83,6 +82,22 @@ export function openMenu({ x, y, items, label, opener = null }) {
       node.append(buildItem(it));
     }
   }
+  return portal({ x, y, node, opener });
+}
+
+/**
+ * Anything else that has to float over the page: same portal, same dismissal,
+ * same arrow keys walking whatever carries .menu-item inside it.
+ */
+export function openPanel({ x, y, node, label, opener = null }) {
+  node.setAttribute('role', 'dialog');
+  node.setAttribute('aria-label', label);
+  node.tabIndex = -1;
+  return portal({ x, y, node, opener });
+}
+
+function portal({ x, y, node, opener }) {
+  closeMenu();
   document.body.append(node);
   place(node, x, y);
   node.focus();
@@ -95,6 +110,7 @@ export function openMenu({ x, y, items, label, opener = null }) {
     if (ev.key === 'Escape') { ev.preventDefault(); closeMenu(); return; }
     if (ev.key === 'ArrowDown') { ev.preventDefault(); step(node, 1); return; }
     if (ev.key === 'ArrowUp') { ev.preventDefault(); step(node, -1); return; }
+    if (ev.target.tagName === 'INPUT') return;      // a search field owns the rest
     if (ev.key === 'Home') { ev.preventDefault(); itemsOf(node)[0].focus(); return; }
     if (ev.key === 'End') { ev.preventDefault(); itemsOf(node).pop().focus(); return; }
     if (ev.key === 'Tab') { ev.preventDefault(); closeMenu(); }

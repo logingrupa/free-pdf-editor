@@ -5,32 +5,97 @@ import { loadScript } from './util.js';
 
 // Liberation shares its advance widths with Arial, Helvetica, Times New Roman
 // and Courier New, so replacing a line of existing text does not reflow it.
-const FILES = {
-  'sans-r':  'LiberationSans-Regular.ttf',
-  'sans-b':  'LiberationSans-Bold.ttf',
-  'sans-i':  'LiberationSans-Italic.ttf',
-  'sans-bi': 'LiberationSans-BoldItalic.ttf',
-  'serif-r':  'LiberationSerif-Regular.ttf',
-  'serif-b':  'LiberationSerif-Bold.ttf',
-  'serif-i':  'LiberationSerif-Italic.ttf',
-  'serif-bi': 'LiberationSerif-BoldItalic.ttf',
-  'mono-r':  'LiberationMono-Regular.ttf',
-  'mono-b':  'LiberationMono-Bold.ttf',
-  'mono-i':  'LiberationMono-Italic.ttf',
-  'mono-bi': 'LiberationMono-BoldItalic.ttf',
+// The rest are here to be chosen; none of them is ever picked automatically.
+export const FONTS = {
+  sans: {
+    label: 'Liberation Sans',
+    upright: { 400: 'LiberationSans-Regular.ttf', 700: 'LiberationSans-Bold.ttf' },
+    italic: { 400: 'LiberationSans-Italic.ttf', 700: 'LiberationSans-BoldItalic.ttf' },
+  },
+  serif: {
+    label: 'Liberation Serif',
+    upright: { 400: 'LiberationSerif-Regular.ttf', 700: 'LiberationSerif-Bold.ttf' },
+    italic: { 400: 'LiberationSerif-Italic.ttf', 700: 'LiberationSerif-BoldItalic.ttf' },
+  },
+  mono: {
+    label: 'Liberation Mono',
+    upright: { 400: 'LiberationMono-Regular.ttf', 700: 'LiberationMono-Bold.ttf' },
+    italic: { 400: 'LiberationMono-Italic.ttf', 700: 'LiberationMono-BoldItalic.ttf' },
+  },
+  fira: {
+    label: 'Fira Sans', dir: 'fonts/',
+    upright: {
+      300: 'FiraSans-Light.ttf', 400: 'FiraSans-Regular.ttf', 500: 'FiraSans-Medium.ttf',
+      700: 'FiraSans-Bold.ttf', 900: 'FiraSans-Black.ttf',
+    },
+    italic: {
+      300: 'FiraSans-LightItalic.ttf', 400: 'FiraSans-Italic.ttf', 500: 'FiraSans-MediumItalic.ttf',
+      700: 'FiraSans-BoldItalic.ttf', 900: 'FiraSans-BlackItalic.ttf',
+    },
+  },
+  plexserif: {
+    label: 'IBM Plex Serif', dir: 'fonts/',
+    upright: {
+      300: 'IBMPlexSerif-Light.ttf', 400: 'IBMPlexSerif-Regular.ttf',
+      600: 'IBMPlexSerif-SemiBold.ttf', 700: 'IBMPlexSerif-Bold.ttf',
+    },
+    italic: {
+      300: 'IBMPlexSerif-LightItalic.ttf', 400: 'IBMPlexSerif-Italic.ttf',
+      600: 'IBMPlexSerif-SemiBoldItalic.ttf', 700: 'IBMPlexSerif-BoldItalic.ttf',
+    },
+  },
+  plexmono: {
+    label: 'IBM Plex Mono', dir: 'fonts/',
+    upright: { 400: 'IBMPlexMono-Regular.ttf', 700: 'IBMPlexMono-Bold.ttf' },
+    italic: { 400: 'IBMPlexMono-Italic.ttf', 700: 'IBMPlexMono-BoldItalic.ttf' },
+  },
 };
-export const FAMILIES = ['sans', 'serif', 'mono'];
+
+export const FAMILIES = Object.keys(FONTS);
+// only these are matched against a line already printed on the page: their
+// widths are the ones a PDF was most likely set in
+export const METRIC = ['sans', 'serif', 'mono'];
+export const WEIGHT_NAME = {
+  100: 'Thin', 200: 'ExtraLight', 300: 'Light', 400: 'Regular', 500: 'Medium',
+  600: 'SemiBold', 700: 'Bold', 800: 'ExtraBold', 900: 'Black',
+};
+
 export const LINE_H = 1.28;
-export const cssFamily = key => 'EditPdf-' + key.split('-')[0];
+// one CSS family per face, so the browser never invents a bold or a slant
+export const cssFamily = key => 'EditPdf-' + key;
 
 const base = new URL('../../vendor/', import.meta.url);
 const cache = new Map();   // key -> Promise<face>
 const ready = new Map();   // key -> face, once resolved
 let fontkitP = null;
 
-export function fontKey(a) {
-  const fam = FAMILIES.includes(a.family) ? a.family : 'sans';
-  return `${fam}-${a.bold ? (a.italic ? 'bi' : 'b') : (a.italic ? 'i' : 'r')}`;
+const famOf = name => (FONTS[name] ? name : 'sans');
+
+/** A style's weight, reading the old bold flag when it carries no number. */
+export const weightOf = s => s.weight || (s.bold ? 700 : 400);
+
+/** The weights a family actually ships, upright or slanted. */
+export const weightsOf = (family, italic) =>
+  Object.keys(FONTS[famOf(family)][italic ? 'italic' : 'upright']).map(Number).sort((a, b) => a - b);
+
+const nearest = (list, want) =>
+  list.reduce((best, w) => (Math.abs(w - want) < Math.abs(best - want) ? w : best), list[0]);
+
+/** The face a style resolves to, snapped to a weight the family really has. */
+export function fontKey(s) {
+  const fam = famOf(s.family);
+  const italic = !!s.italic;
+  const have = nearest(weightsOf(fam, italic), weightOf(s));
+  return `${fam}-${have}${italic ? 'i' : ''}`;
+}
+
+export function fileOf(key) {
+  const cut = key.lastIndexOf('-');
+  const fam = key.slice(0, cut);
+  const italic = key.endsWith('i');
+  const weight = parseInt(key.slice(cut + 1), 10);
+  const rec = FONTS[fam];
+  return (rec.dir || '') + rec[italic ? 'italic' : 'upright'][weight];
 }
 
 function fontkit() {
@@ -46,15 +111,13 @@ export function loadFont(key) {
     cache.set(key, (async () => {
       const [fk, buf] = await Promise.all([
         fontkit(),
-        fetch(new URL(FILES[key], base)).then(r => r.arrayBuffer()),
+        fetch(new URL(fileOf(key), base)).then(r => r.arrayBuffer()),
       ]);
       const bytes = new Uint8Array(buf);
       const font = fk.create(bytes);
-      // Register the same face for the DOM/SVG preview.
-      const face = new FontFace(cssFamily(key), buf, {
-        weight: key.endsWith('-b') || key.endsWith('-bi') ? '700' : '400',
-        style: key.endsWith('-i') || key.endsWith('-bi') ? 'italic' : 'normal',
-      });
+      // Registered plain, because the family name already names the face: ask
+      // for a weight the file does not have and the browser draws a fake one.
+      const face = new FontFace(cssFamily(key), buf, { weight: '400', style: 'normal' });
       document.fonts.add(await face.load());
       const rec = { key, bytes, fk: font, upem: font.unitsPerEm, ascent: font.ascent, descent: font.descent };
       ready.set(key, rec);
@@ -74,15 +137,14 @@ export function measure(f, str, size) {
   return (units / f.upem) * size;
 }
 
-const VARIANTS = [['r', false, false], ['b', true, false], ['i', false, true], ['bi', true, true]];
-const PLAIN = { bold: false, italic: false };
+const PLAIN = { weight: 400, italic: false };
 const SURE = 0.006;   // a true metric match measures inside this, so stop looking
 const FITS = 0.015;   // the widest gap still counted as the same face
 
 /** Fetch the faces a replacement is measured against, before a click needs them. */
 export function warmFaces(families) {
   for (const fam of families) {
-    for (const v of ['r', 'b']) loadFont(`${fam}-${v}`).catch(() => {});
+    for (const w of [400, 700]) loadFont(fontKey({ family: fam, weight: w })).catch(() => {});
   }
 }
 
@@ -101,14 +163,15 @@ export async function matchFace(family, str, size, width) {
   const plain = { family, ...PLAIN };
   if (!(width > 0) || str.trim().length < SHORT) return plain;
   const families = OTHER[family] ? [family, OTHER[family]] : [family];
+  const rounds = [[{ weight: 400 }, { weight: 700 }], [{ weight: 400, italic: true }, { weight: 700, italic: true }]];
   try {
     const tried = [];
-    for (const pass of [VARIANTS.slice(0, 2), VARIANTS.slice(2)]) {
+    for (const round of rounds) {
       for (const fam of families) {
-        for (const v of pass) {
-          const f = await loadFont(`${fam}-${v[0]}`);
+        for (const v of round) {
+          const f = await loadFont(fontKey({ family: fam, ...v }));
           const e = Math.abs(measure(f, str, size) - width) / width;
-          if (e < SURE) return { family: fam, bold: v[1], italic: v[2] };
+          if (e < SURE) return { family: fam, weight: v.weight, italic: !!v.italic };
           tried.push({ fam, v, e });
         }
       }
@@ -116,7 +179,7 @@ export async function matchFace(family, str, size, width) {
     let best = tried[0];
     for (const t of tried) if (t.e < best.e - 0.005) best = t;   // ties keep the first guess
     if (best.e > FITS) return plain;                             // unknown face, leave it alone
-    return { family: best.fam, bold: best.v[1], italic: best.v[2] };
+    return { family: best.fam, weight: best.v.weight, italic: !!best.v.italic };
   } catch (e) {
     // the match is a nicety, never a reason to refuse the edit
     console.warn('font match failed, using regular', e);
@@ -130,14 +193,13 @@ export async function matchFace(family, str, size, width) {
 // whole paragraphs, and whatever either of them leaves out falls back to the
 // settings on the annotation itself.
 
-export const CHAR_KEYS = ['family', 'bold', 'italic', 'size', 'color', 'hl', 'under'];
+export const CHAR_KEYS = ['family', 'weight', 'italic', 'size', 'color', 'hl', 'under'];
 export const PARA_KEYS = ['align', 'lh', 'before', 'after', 'indent'];
 
 /** What a run wears when it says nothing of its own. */
 export const baseStyle = a => ({
-  family: FAMILIES.includes(a.family) ? a.family : 'sans',
-  bold: !!a.bold, italic: !!a.italic, size: a.size, color: a.color,
-  hl: a.hl || null, under: !!a.under,
+  family: famOf(a.family), weight: weightOf(a), italic: !!a.italic,
+  size: a.size, color: a.color, hl: a.hl || null, under: !!a.under,
 });
 
 const dressed = (base, r) => {

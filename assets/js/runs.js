@@ -18,18 +18,23 @@ function cover(a) {
 
 const alike = (x, y) => CHAR_KEYS.every(k => (x[k] ?? null) === (y[k] ?? null));
 
-/** Glue neighbours that ended up wearing the same thing, and drop the empties. */
+/**
+ * A run only records what it does differently from the box, so glue neighbours
+ * that ended up wearing the same thing and drop the ones that say nothing.
+ */
 function tidy(runs, a) {
   const base = baseStyle(a);
   const out = [];
   for (const r of runs) {
     if (r.n <= 0) continue;
+    const lean = { n: r.n };
+    for (const k of CHAR_KEYS) if ((r[k] ?? null) !== (base[k] ?? null)) lean[k] = r[k];
     const last = out[out.length - 1];
-    if (last && alike(last, r)) last.n += r.n;
-    else out.push({ ...r });
+    if (last && alike(last, lean)) last.n += lean.n;
+    else out.push(lean);
   }
-  // a single run that matches the annotation's own style is not worth keeping
-  if (out.length === 1 && alike(out[0], base)) return null;
+  // one run that says nothing is the box's own style, which is already recorded
+  if (out.length === 1 && Object.keys(out[0]).length === 1) return null;
   return out.length ? out : null;
 }
 

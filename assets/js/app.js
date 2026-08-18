@@ -4,7 +4,8 @@ import * as S from './store.js';
 import * as V from './viewer.js';
 import { buildPdf } from './exporter.js';
 import { ICON } from './icons.js';
-import { openMenu, onLongPress } from './menu.js';
+import { openMenu, openPanel, closeMenu, onLongPress } from './menu.js';
+import { FONTS, FAMILIES, WEIGHT_NAME, cssFamily, fontKey, loadFont, weightOf, weightsOf } from './text.js';
 import { saveBlob, readAsDataURL } from './util.js';
 
 const t = window.i18n.t;
@@ -227,8 +228,8 @@ const FIELDS = {
   ellipse: ['color', 'width', 'fill', 'angle'],
   highlight: ['fill', 'opacity', 'angle'],
   whiteout: ['fill', 'angle'],
-  text: ['color', 'size', 'family', 'face', 'hl', 'para', 'angle', 'effects', 'box'],
-  etext: ['color', 'size', 'family', 'face', 'hl', 'para', 'effects', 'box'],
+  text: ['color', 'size', 'family', 'weight', 'face', 'hl', 'para', 'angle', 'effects', 'box'],
+  etext: ['color', 'size', 'family', 'weight', 'face', 'hl', 'para', 'effects', 'box'],
   image: ['angle'],
   select: [],
   edit: [],
@@ -244,7 +245,7 @@ function target() {
 // Text carries three levels: one character style per stretch of letters, one
 // setting per paragraph, and the rest on the box. A property is routed by which
 // of the three it belongs to, so the caret decides how far a change reaches.
-const CHAR_PROPS = ['color', 'size', 'family', 'bold', 'italic', 'hl', 'under'];
+const CHAR_PROPS = ['color', 'size', 'family', 'weight', 'italic', 'hl', 'under'];
 const PARA_PROPS = ['align', 'lh', 'before', 'after', 'indent'];
 const only = (patch, list) => Object.keys(patch).every(k => list.includes(k));
 
@@ -363,6 +364,115 @@ function segmented(options, isPressed, onPick) {
     wrap.append(b);
   });
   return wrap;
+}
+
+/* ---- fonts ----------------------------------------------------------- */
+const CARET = '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>';
+
+/** Set a node in one face, once that face has come down the wire. */
+function inFace(node, family, weight, italic) {
+  const key = fontKey({ family, weight, italic });
+  loadFont(key).then(() => { node.style.fontFamily = `${cssFamily(key)}, sans-serif`; }).catch(() => {});
+}
+
+function pickButton(label) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'pick';
+  const name = document.createElement('span');
+  name.className = 'pick-name';
+  name.textContent = label;
+  const caret = document.createElement('span');
+  caret.className = 'pick-caret';
+  caret.innerHTML = CARET;
+  b.append(name, caret);
+  return b;
+}
+
+/** The font list: every family, its name set in itself, filtered as you type. */
+function fontPicker(style, onPick) {
+  const now = FONTS[style.family] ? style.family : 'sans';
+  const b = pickButton(FONTS[now].label);
+  inFace(b.querySelector('.pick-name'), now, 400, false);
+  b.onclick = () => {
+    const node = document.createElement('div');
+    node.className = 'menu picker';
+    const find = document.createElement('input');
+    find.type = 'search';
+    find.className = 'picker-find';
+    find.placeholder = t('prop.searchFonts');
+    find.setAttribute('aria-label', t('prop.searchFonts'));
+    const list = document.createElement('div');
+    list.className = 'picker-list';
+    const empty = document.createElement('p');
+    empty.className = 'picker-empty';
+    empty.textContent = t('prop.noFont');
+    empty.hidden = true;
+
+    const rows = FAMILIES.map(fam => {
+      const it = document.createElement('button');
+      it.type = 'button';
+      it.className = 'menu-item';
+      it.setAttribute('role', 'menuitem');
+      it.tabIndex = -1;
+      it.dataset.family = fam;
+      if (fam === now) it.setAttribute('aria-current', 'true');
+      const label = document.createElement('span');
+      label.textContent = FONTS[fam].label;
+      const count = document.createElement('span');
+      count.className = 'picker-weights';
+      count.textContent = weightsOf(fam, false).length;
+      it.append(label, count);
+      inFace(label, fam, 400, false);
+      it.onclick = () => { closeMenu(); onPick(fam); };
+      it.addEventListener('pointerenter', () => it.focus());
+      list.append(it);
+      return it;
+    });
+
+    find.addEventListener('input', () => {
+      const q = find.value.trim().toLowerCase();
+      let seen = 0;
+      for (const it of rows) {
+        const hit = !q || FONTS[it.dataset.family].label.toLowerCase().includes(q);
+        it.hidden = !hit;
+        if (hit) seen++;
+      }
+      empty.hidden = seen > 0;
+    });
+    find.addEventListener('keydown', ev => {
+      if (ev.key !== 'Enter') return;
+      const first = rows.find(it => !it.hidden);
+      if (first) first.click();
+    });
+
+    node.append(find, list, empty);
+    const r = b.getBoundingClientRect();
+    openPanel({ x: r.left, y: r.bottom + 6, node, label: t('prop.font'), opener: b });
+    find.focus();
+  };
+  return b;
+}
+
+/** Only the weights the family really ships, each named in its own weight. */
+function weightPicker(style, onPick) {
+  const list = weightsOf(style.family, style.italic);
+  const now = list.reduce((best, w) =>
+    (Math.abs(w - weightOf(style)) < Math.abs(best - weightOf(style)) ? w : best), list[0]);
+  const b = pickButton(WEIGHT_NAME[now]);
+  inFace(b.querySelector('.pick-name'), style.family, now, style.italic);
+  b.onclick = () => {
+    const r = b.getBoundingClientRect();
+    const node = openMenu({
+      x: r.left, y: r.bottom + 6, label: t('prop.weight'), opener: b,
+      items: list.map(w => ({ label: WEIGHT_NAME[w], run: () => onPick(w) })),
+    });
+    [...node.querySelectorAll('.menu-item')].forEach((it, i) => {
+      inFace(it, style.family, list[i], style.italic);
+      if (list[i] === now) it.setAttribute('aria-current', 'true');
+    });
+  };
+  return b;
 }
 
 const bars = tops => `<svg viewBox="0 0 24 24"><path d="M4 6h16M${tops[0]} 10h${tops[1]}M4 14h16M${tops[0]} 18h${tops[1]}"/></svg>`;
@@ -552,8 +662,9 @@ function paintProps() {
         [['b', `<b>${t('prop.boldLetter')}</b>`, 'font-weight:700', t('prop.bold')],
           ['i', `<i>${t('prop.italicLetter')}</i>`, 'font-style:italic', t('prop.italic')],
           ['u', `<u>${t('prop.underlineLetter')}</u>`, 'text-decoration:underline', t('prop.underline')]],
-        v => (v === 'b' ? !!cs.bold : v === 'i' ? !!cs.italic : !!cs.under),
-        v => setProp(v === 'b' ? { bold: !cs.bold } : v === 'i' ? { italic: !cs.italic } : { under: !cs.under }),
+        v => (v === 'b' ? weightOf(cs) >= 600 : v === 'i' ? !!cs.italic : !!cs.under),
+        v => setProp(v === 'b' ? { weight: weightOf(cs) >= 600 ? 400 : 700 }
+          : v === 'i' ? { italic: !cs.italic } : { under: !cs.under }),
       )));
     }
     if (f === 'hl') {
@@ -562,15 +673,8 @@ function paintProps() {
     }
     if (f === 'para') p.append(paraFold(ps));
     if (f === 'effects') p.append(effectsFold(o));
-    if (f === 'family') {
-      p.append(row(t('prop.font'), segmented(
-        [['sans', 'Sans', 'font-family:ui-sans-serif,sans-serif', 'Liberation Sans, the widths of Arial'],
-          ['serif', 'Serif', 'font-family:Georgia,serif', 'Liberation Serif, the widths of Times New Roman'],
-          ['mono', 'Mono', 'font-family:ui-monospace,monospace', 'Liberation Mono, the widths of Courier New']],
-        v => v === (cs.family || 'sans'),
-        v => setProp({ family: v }),
-      )));
-    }
+    if (f === 'family') p.append(row(t('prop.font'), fontPicker(cs, v => setProp({ family: v }))));
+    if (f === 'weight') p.append(row(t('prop.weight'), weightPicker(cs, v => setProp({ weight: v }))));
     // an angle belongs to one object, never to a tool that has not drawn yet
     if (f === 'angle' && cur.annot) {
       p.append(row(t('prop.angle'),
