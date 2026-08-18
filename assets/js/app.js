@@ -322,6 +322,8 @@ function paintProps() {
     }
   }
 
+  p.classList.toggle('empty', !p.querySelector('.row'));
+
   const tip = document.createElement('div');
   tip.className = 'tipbox';
   tip.textContent = t.annot

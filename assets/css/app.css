@@ -182,15 +182,25 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
 /* ---- small screens --------------------------------------------------- */
 @media (max-width:760px){
+  /* the bar must never overflow: a wider bar stretches the layout viewport
+     and pushes the fixed tool rail off screen */
+  .topbar{gap:4px;padding:0 6px;overflow:hidden}
+  .grp{padding:2px}
+  .zoomval,#newBtn span{display:none}
+  #newBtn{width:34px;padding:0}
+  .file{margin-left:2px;padding-left:8px}
+  .save-state{width:8px;height:8px;flex:none;margin:0 2px;padding:0;border-radius:50%;background:var(--fg-mute);font-size:0;overflow:hidden}
+  .save-state.on{background:var(--ok)}
+  body:not([data-empty]) .props.empty{display:none}
   .pages{display:none!important}
   .props{position:fixed;left:0;right:0;bottom:52px;width:auto;max-height:44vh;border-left:0;border-top:1px solid var(--line);z-index:25;flex-direction:row;flex-wrap:wrap;gap:12px;align-items:flex-start}
   .props h3,.tipbox{display:none}
   .row{margin-bottom:0;flex:1 1 130px}
   .rail{position:fixed;left:0;right:0;bottom:0;width:auto;height:52px;flex-direction:row;justify-content:flex-start;border-right:0;border-top:1px solid var(--line);z-index:26;overflow-x:auto;padding:7px 8px}
   .tool{flex:none}
-  .viewport{padding:12px 8px 300px}
+  .viewport{padding:12px 8px 150px}
   .brand span,.file-meta{display:none}
-  .file-name{max-width:38vw}
+  .file-name{max-width:20vw}
   #downloadBtn span{display:none}
   #downloadBtn{width:36px;padding:0}
 }
