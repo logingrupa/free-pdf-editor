@@ -97,7 +97,12 @@ body:not([data-empty]) .rail{display:flex}
   background:var(--bg-2);border-right:1px solid var(--line);
 }
 body:not([data-empty]) .pages{display:flex}
-body[data-pages="off"] .pages{display:none}
+/* collapsed to a strip, never hidden, or the toggle goes with it */
+body[data-pages="off"] .pages{width:36px}
+body[data-pages="off"] .pages-head{justify-content:center;padding:8px 0}
+body[data-pages="off"] .pages-head span{display:none}
+body[data-pages="off"] .thumbs{display:none}
+body[data-pages="off"] #pagesToggle svg{transform:rotate(180deg)}
 .pages-head{display:flex;align-items:center;justify-content:space-between;padding:8px 8px 8px 12px;font-size:12px;color:var(--fg-mute);text-transform:uppercase;letter-spacing:.08em}
 .thumbs{flex:1;overflow-y:auto;padding:4px 8px 16px;display:flex;flex-direction:column;gap:8px}
 .thumb{position:relative;border-radius:8px;cursor:pointer;outline:2px solid transparent;transition:outline-color .12s}
@@ -126,6 +131,7 @@ body:not([data-empty]) .viewport{display:block}
 .ov .tl{fill:transparent;stroke:none;cursor:text}
 .ov .tl:hover{fill:var(--accent);fill-opacity:.16;stroke:var(--accent);stroke-opacity:.55;stroke-width:.6}
 .ov .hit{fill:transparent;stroke:transparent;stroke-width:10}
+.ov .guide{fill:var(--accent);fill-opacity:.10;stroke:var(--accent);stroke-dasharray:4 3;vector-effect:non-scaling-stroke;pointer-events:none}
 .ov .selbox{fill:none;stroke:var(--accent);stroke-dasharray:4 3;vector-effect:non-scaling-stroke;pointer-events:none}
 .ov .h{fill:#fff;stroke:var(--accent);vector-effect:non-scaling-stroke;cursor:nwse-resize}
 .ov .h[data-h="ne"],.ov .h[data-h="sw"]{cursor:nesw-resize}
@@ -177,6 +183,19 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 }
 .num input[type=number]:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
 .num .unit{flex:0 0 auto;font-size:12px;color:var(--fg-mute)}
+.layers{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+.layers h3{margin:0 0 8px}
+.layer{
+  display:flex;align-items:center;gap:8px;min-width:0;
+  padding:6px 8px;margin-bottom:4px;border:1px solid transparent;border-radius:8px;
+  background:var(--bg-3);cursor:grab;font-size:12px;
+}
+.layer:hover{border-color:var(--line)}
+.layer[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.layer.drag-over{border-color:var(--ok)}
+.layer-kind{flex:none;color:var(--fg-mute);text-transform:uppercase;font-size:10px;letter-spacing:.06em}
+.layer-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-dim)}
+.layers-empty,.layers-hint{margin:6px 2px 0;font-size:11px;color:var(--fg-mute);line-height:1.4}
 .props .btn.wide{width:100%;justify-content:center;border:1px solid var(--line)}
 .props .btn.del{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 35%,transparent)}
 .props .btn.del:hover{background:color-mix(in srgb,var(--danger) 14%,transparent)}

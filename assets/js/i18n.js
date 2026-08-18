@@ -23,6 +23,10 @@
       'app.tools': 'Tools',
       'app.pages': 'Pages',
       'app.pagesHide': 'Hide page list',
+      'app.pagesShow': 'Show page list',
+      'app.layers': 'Layers',
+      'app.layersHint': 'Drag to restack. The top row draws last.',
+      'app.layersEmpty': 'Nothing on this page yet.',
       'app.properties': 'Properties',
 
       'tool.edit': 'Edit the text already on the page (E)',
@@ -129,6 +133,10 @@
       'app.tools': 'Rīki',
       'app.pages': 'Lappuses',
       'app.pagesHide': 'Paslēpt lappušu sarakstu',
+      'app.pagesShow': 'Rādīt lappušu sarakstu',
+      'app.layers': 'Slāņi',
+      'app.layersHint': 'Velciet, lai mainītu kārtību. Augšējā rinda zīmējas pēdējā.',
+      'app.layersEmpty': 'Šajā lappusē vēl nekā nav.',
       'app.properties': 'Īpašības',
 
       'tool.edit': 'Rediģēt tekstu, kas jau ir lapā (E)',
@@ -236,6 +244,10 @@
       'app.tools': 'Инструменты',
       'app.pages': 'Страницы',
       'app.pagesHide': 'Скрыть список страниц',
+      'app.pagesShow': 'Показать список страниц',
+      'app.layers': 'Слои',
+      'app.layersHint': 'Перетащите, чтобы изменить порядок. Верхняя строка рисуется последней.',
+      'app.layersEmpty': 'На этой странице пока ничего нет.',
       'app.properties': 'Свойства',
 
       'tool.edit': 'Изменить текст, который уже есть на странице (E)',

@@ -171,6 +171,24 @@ export function movePage(from, to) {
   changed();
 }
 
+/**
+ * Reorder one page's annotations. Draw order is stack order, so this is what
+ * decides which annotation covers which. Other pages keep their slots.
+ */
+export function moveAnnot(pageId, from, to) {
+  if (from === to) return;
+  const mine = state.annots.filter(a => a.page === pageId);
+  if (from < 0 || to < 0 || from >= mine.length || to >= mine.length) return;
+  commit();
+  const [moved] = mine.splice(from, 1);
+  mine.splice(to, 0, moved);
+  const slots = [];
+  state.annots.forEach((a, i) => { if (a.page === pageId) slots.push(i); });
+  slots.forEach((slot, k) => { state.annots[slot] = mine[k]; });
+  emit('annots', pageId);
+  changed();
+}
+
 /* ---- persistence ----------------------------------------------------- */
 const DB = 'edit-pdf', STORE = 'doc', KEY = 'current';
 let dbp = null;

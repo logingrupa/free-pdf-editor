@@ -583,12 +583,41 @@ function onDown(ev, p) {
 
   if (tool === 'text') {
     ev.preventDefault();
-    const a = addAnnot({
-      page: p.id, type: 'text', x: pt.x, y: pt.y - state.style.text.size * 0.6,
-      w: Math.min(260, Math.max(80, p.w - pt.x - 12)), text: '', ...styleFor('text'),
+    rec.svg.setPointerCapture(ev.pointerId);
+    const guide = el('rect', { class: 'guide', x: pt.x, y: pt.y, width: 0, height: 0 });
+    rec.g.append(guide);
+    let now = pt;
+    const draw = onFrame(() => {
+      guide.setAttribute('x', Math.min(pt.x, now.x));
+      guide.setAttribute('y', Math.min(pt.y, now.y));
+      guide.setAttribute('width', Math.abs(now.x - pt.x));
+      guide.setAttribute('height', Math.abs(now.y - pt.y));
     });
-    paintOverlay(p.id);
-    openEditor(p, a, true);
+    const move = e => { now = local(rec, e); draw(); };
+    const up = () => {
+      endGesture = null;
+      draw.cancel();
+      guide.remove();
+      rec.svg.removeEventListener('pointermove', move);
+      rec.svg.removeEventListener('pointerup', up);
+      rec.svg.removeEventListener('pointercancel', up);
+      const style = styleFor('text');
+      const drawn = Math.abs(now.x - pt.x);
+      const dragged = drawn > style.size;          // anything less was a click
+      const a = addAnnot({
+        page: p.id, type: 'text',
+        x: dragged ? Math.min(pt.x, now.x) : pt.x,
+        y: dragged ? Math.min(pt.y, now.y) : pt.y - style.size * 0.6,
+        w: dragged ? drawn : Math.min(260, Math.max(80, p.w - pt.x - 12)),
+        text: '', ...style,
+      });
+      paintOverlay(p.id);
+      openEditor(p, a, true);
+    };
+    endGesture = up;
+    rec.svg.addEventListener('pointermove', move);
+    rec.svg.addEventListener('pointerup', up);
+    rec.svg.addEventListener('pointercancel', up);
     return;
   }
 
@@ -883,7 +912,7 @@ export function openEditor(p, a, isNew) {
     grow();
     ta.addEventListener('input', () => { a.text = ta.value; grow(); });
     ta.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { e.preventDefault(); closeEditor(true); }
+      if (e.key === 'Escape') { e.preventDefault(); closeEditor(true, true); }
       e.stopPropagation();
     });
     const node = rec.g.querySelector(`[data-id="${a.id}"]`);
@@ -899,15 +928,15 @@ export function openEditor(p, a, isNew) {
   });
 }
 
-export function closeEditor(persist) {
+export function closeEditor(persist, cancelled) {
   if (!editor) return;
   const { ta, a, p, isNew, was } = editor;
   editor = null;
   a.text = ta.value;
   ta.remove();
   if (!a.text.trim() && a.type === 'text') discardAnnot(a.id);   // an empty cover-up is a deletion
-  // a cancelled click on printed text must leave the page as it was
-  else if (isNew && a.type === 'etext' && a.text === was) discardAnnot(a.id);
+  // escape on a fresh replacement leaves the printed line as it was
+  else if (cancelled && isNew && a.type === 'etext' && a.text === was) discardAnnot(a.id);
   paintOverlay(p.id);
   if (persist || isNew) touch(p.id);
 }

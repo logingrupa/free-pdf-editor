@@ -106,7 +106,11 @@ $('zoomIn').onclick = () => V.setZoom(S.state.zoom * 1.2);
 $('zoomOut').onclick = () => V.setZoom(S.state.zoom / 1.2);
 ui.zoomVal.onclick = () => V.setZoom(V.fitZoom(), true);
 $('pickBtn').onclick = () => ui.fileInput.click();
-$('pagesToggle').onclick = () => body.setAttribute('data-pages', body.dataset.pages === 'off' ? 'on' : 'off');
+$('pagesToggle').onclick = () => {
+  const off = body.dataset.pages !== 'off';
+  body.setAttribute('data-pages', off ? 'off' : 'on');
+  $('pagesToggle').title = t(off ? 'app.pagesShow' : 'app.pagesHide');
+};
 
 $('newBtn').onclick = () => {
   if (!confirm(t('msg.closeConfirm'))) return;
@@ -302,6 +306,78 @@ function segmented(options, isPressed, onPick) {
   return wrap;
 }
 
+/** Which page the layer list is about: the selection's, else the first with work. */
+function layersPage() {
+  const sel = S.annotById(S.state.sel);
+  if (sel) return S.pageById(sel.page);
+  const first = S.state.pages.find(pg => S.annotsOf(pg.id).length);
+  return first || S.state.pages[0] || null;
+}
+
+const layerLabel = a => {
+  const text = (a.text || '').trim().replace(/\s+/g, ' ');
+  return text ? text.slice(0, 38) : typeName(a.type);
+};
+
+/** The page's annotations, topmost first, reorderable by dragging. */
+function layersSection() {
+  const wrap = document.createElement('div');
+  wrap.className = 'layers';
+  const pg = layersPage();
+  if (!pg) return wrap;
+
+  const head = document.createElement('h3');
+  head.textContent = S.state.pages.length > 1
+    ? `${t('app.layers')} ${S.state.pages.indexOf(pg) + 1}`
+    : t('app.layers');
+  wrap.append(head);
+
+  const list = S.annotsOf(pg.id);
+  if (!list.length) {
+    const empty = document.createElement('p');
+    empty.className = 'layers-empty';
+    empty.textContent = t('app.layersEmpty');
+    wrap.append(empty);
+    return wrap;
+  }
+
+  // drawn last means on top, so the list reads the other way round
+  const rows = [...list].reverse();
+  rows.forEach((a, i) => {
+    const row = document.createElement('div');
+    row.className = 'layer';
+    row.draggable = true;
+    row.setAttribute('aria-pressed', String(a.id === S.state.sel));
+    const kind = document.createElement('span');
+    kind.className = 'layer-kind';
+    kind.textContent = typeName(a.type);
+    const name = document.createElement('span');
+    name.className = 'layer-name';
+    name.textContent = layerLabel(a);
+    row.append(kind, name);
+    row.onclick = () => S.select(a.id);
+    row.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', String(i)));
+    row.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); row.classList.add('drag-over'); });
+    row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      row.classList.remove('drag-over');
+      const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      if (Number.isNaN(from) || from === i) return;
+      const last = rows.length - 1;
+      S.moveAnnot(pg.id, last - from, last - i);   // back to draw order
+    });
+    wrap.append(row);
+  });
+
+  const hint = document.createElement('p');
+  hint.className = 'layers-hint';
+  hint.textContent = t('app.layersHint');
+  wrap.append(hint);
+  return wrap;
+}
+
 function paintProps() {
   const cur = target();
   const p = ui.props;
@@ -336,9 +412,9 @@ function paintProps() {
     }
     if (f === 'family') {
       p.append(row(t('prop.font'), segmented(
-        [['sans', 'Aa', 'font-family:ui-sans-serif,sans-serif', 'Sans'],
-          ['serif', 'Aa', 'font-family:Georgia,serif', 'Serif'],
-          ['mono', 'Aa', 'font-family:ui-monospace,monospace', 'Mono']],
+        [['sans', 'Sans', 'font-family:ui-sans-serif,sans-serif', 'Liberation Sans, the widths of Arial'],
+          ['serif', 'Serif', 'font-family:Georgia,serif', 'Liberation Serif, the widths of Times New Roman'],
+          ['mono', 'Mono', 'font-family:ui-monospace,monospace', 'Liberation Mono, the widths of Courier New']],
         v => v === (o.family || 'sans'),
         v => setProp({ family: v }),
       )));
@@ -370,6 +446,7 @@ function paintProps() {
     }
   }
 
+  p.append(layersSection());
   p.classList.toggle('empty', !p.querySelector('.row'));
 
   const tip = document.createElement('div');
