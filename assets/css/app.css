@@ -190,6 +190,7 @@ body.dragging .drop-inner{border-color:var(--accent);background:var(--accent-sof
 }
 body:not([data-empty]) .props{display:flex}
 .props h3{margin:2px 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--fg-mute);font-weight:600}
+.props .group{display:contents}
 .row{margin-bottom:14px}
 .row label{display:block;font-size:12px;color:var(--fg-dim);margin-bottom:6px}
 .swatches{display:flex;flex-wrap:wrap;gap:6px}
@@ -304,6 +305,24 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   .save-state{width:8px;height:8px;flex:none;margin:0 2px;padding:0;border-radius:50%;background:var(--fg-mute);font-size:0;overflow:hidden}
   .save-state.on{background:var(--ok)}
   body:not([data-empty]) .props.empty{display:none}
+  /* one section at a time, picked from a row of tabs */
+  .props.sheet{flex-direction:column;flex-wrap:nowrap;max-height:46vh}
+  .sheet-tabs{flex:none;display:flex;gap:5px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+  .sheet-tabs::-webkit-scrollbar{display:none}
+  .sheet-tab{
+    flex:none;height:32px;padding:0 13px;border:1px solid var(--line);border-radius:8px;
+    background:transparent;color:var(--fg-dim);font:inherit;font-size:12px;white-space:nowrap;cursor:pointer;
+  }
+  .sheet-tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+  .props.sheet>[data-label]{display:none}
+  .props.sheet>.on{
+    flex:1 1 auto;min-height:0;overflow-y:auto;
+    display:flex;flex-wrap:wrap;gap:12px;align-content:flex-start;
+  }
+  .props.sheet .fold.on{margin:0;border-top:0;padding-top:0}
+  .props.sheet .fold>summary{display:none}
+  .props.sheet .layers.on{flex-direction:column;flex-wrap:nowrap;max-height:none;padding:0;border-top:0}
+  .props .reach{flex:1 1 100%;margin:0}
   .side{display:none!important}
   .props .layers{display:flex;flex:1 1 100%;max-height:32vh;padding:10px 0 0;border-top:1px solid var(--line)}
   .props{position:fixed;left:0;right:0;bottom:52px;width:auto;max-height:44vh;border-left:0;border-top:1px solid var(--line);z-index:25;flex-direction:row;flex-wrap:wrap;gap:12px;align-items:flex-start}

@@ -228,7 +228,7 @@ const FIELDS = {
   ellipse: ['color', 'width', 'fill', 'angle'],
   highlight: ['fill', 'opacity', 'angle'],
   whiteout: ['fill', 'angle'],
-  text: ['color', 'size', 'family', 'weight', 'face', 'hl', 'para', 'angle', 'effects', 'box'],
+  text: ['color', 'size', 'family', 'weight', 'face', 'hl', 'angle', 'para', 'effects', 'box'],
   etext: ['color', 'size', 'family', 'weight', 'face', 'hl', 'para', 'effects', 'box'],
   image: ['angle'],
   select: [],
@@ -506,6 +506,8 @@ function fold(name, label) {
   const d = document.createElement('details');
   d.className = 'fold';
   d.dataset.fold = name;
+  d.dataset.label = label;
+  d.dataset.tab = name;
   d.open = !!foldOpen[name];
   d.addEventListener('toggle', () => { foldOpen[name] = d.open; });
   const sum = document.createElement('summary');
@@ -627,7 +629,44 @@ function paintLayers() {
 
 // the panel is off screen on a phone, so the list rides with the properties there
 const narrow = window.matchMedia('(max-width:760px)');
-narrow.addEventListener('change', () => (narrow.matches ? ui.props : ui.side).append(ui.layers));
+narrow.addEventListener('change', () => {
+  (narrow.matches ? ui.props : ui.side).append(ui.layers);
+  paintProps();
+});
+
+/* ---- the phone sheet -------------------------------------------------- */
+// A phone has room for one section at a time, so the panel becomes a sheet and
+// the sections it already has become its tabs. On a wide screen they all show.
+let sheetTab = 'text';
+
+function paintSheet() {
+  const p = ui.props;
+  const sections = [...p.querySelectorAll('[data-label]')];
+  p.classList.toggle('sheet', narrow.matches && sections.length > 1);
+  if (!p.classList.contains('sheet')) {
+    sections.forEach(n => n.classList.remove('on'));
+    return;
+  }
+  if (!sections.some(n => n.dataset.label && n.dataset.tab === sheetTab)) sheetTab = sections[0].dataset.tab;
+
+  const tabs = document.createElement('div');
+  tabs.className = 'sheet-tabs';
+  tabs.setAttribute('role', 'tablist');
+  for (const n of sections) {
+    const on = n.dataset.tab === sheetTab;
+    n.classList.toggle('on', on);
+    if (n.tagName === 'DETAILS') n.open = true;      // the tab is the disclosure here
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sheet-tab';
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(on));
+    b.textContent = n.dataset.label;
+    b.onclick = () => { sheetTab = n.dataset.tab; paintProps(); };
+    tabs.append(b);
+  }
+  p.prepend(tabs);
+}
 
 function paintProps() {
   const cur = target();
@@ -639,6 +678,14 @@ function paintProps() {
   title.textContent = cur.annot ? t('prop.selected', { name: typeName(cur.type) }) : typeName(cur.type);
   p.append(title);
 
+  // the rows that are not in a fold still need a home, so the sheet can show
+  // them on their own tab
+  const main = document.createElement('div');
+  main.className = 'group';
+  main.dataset.label = t('prop.text');
+  main.dataset.tab = 'text';
+  p.append(main);
+
   const fields = FIELDS[cur.type] || [];
   const o = cur.obj;
   const shape = cur.type === 'rect' || cur.type === 'ellipse';
@@ -648,17 +695,17 @@ function paintProps() {
   const ps = texty ? V.paraHere(o) : o;
 
   for (const f of fields) {
-    if (f === 'color') p.append(row(t('prop.colour'), swatches(COLORS, cs.color, v => setProp({ color: v }))));
+    if (f === 'color') main.append(row(t('prop.colour'), swatches(COLORS, cs.color, v => setProp({ color: v }))));
     if (f === 'fill') {
       const list = cur.type === 'highlight' ? HIGHLIGHTS : COLORS;
-      p.append(row(shape ? t('prop.fill') : t('prop.colour'),
+      main.append(row(shape ? t('prop.fill') : t('prop.colour'),
         swatches(list, o.fill, v => setProp({ fill: v }), shape)));
     }
-    if (f === 'width') p.append(row(t('prop.stroke'), slider(0.5, 12, 0.5, o.width, ' pt', (v, done) => setProp({ width: v }, done))));
-    if (f === 'opacity') p.append(row(t('prop.opacity'), slider(0.1, 1, 0.05, o.opacity, '', (v, done) => setProp({ opacity: v }, done))));
-    if (f === 'size') p.append(row(t('prop.size'), slider(4, 72, 0.1, cs.size, ' pt', (v, done) => setProp({ size: v }, done), 400)));
+    if (f === 'width') main.append(row(t('prop.stroke'), slider(0.5, 12, 0.5, o.width, ' pt', (v, done) => setProp({ width: v }, done))));
+    if (f === 'opacity') main.append(row(t('prop.opacity'), slider(0.1, 1, 0.05, o.opacity, '', (v, done) => setProp({ opacity: v }, done))));
+    if (f === 'size') main.append(row(t('prop.size'), slider(4, 72, 0.1, cs.size, ' pt', (v, done) => setProp({ size: v }, done), 400)));
     if (f === 'face') {
-      p.append(row(t('prop.style'), segmented(
+      main.append(row(t('prop.style'), segmented(
         [['b', `<b>${t('prop.boldLetter')}</b>`, 'font-weight:700', t('prop.bold')],
           ['i', `<i>${t('prop.italicLetter')}</i>`, 'font-style:italic', t('prop.italic')],
           ['u', `<u>${t('prop.underlineLetter')}</u>`, 'text-decoration:underline', t('prop.underline')]],
@@ -668,20 +715,22 @@ function paintProps() {
       )));
     }
     if (f === 'hl') {
-      p.append(row(t('prop.highlight'),
+      main.append(row(t('prop.highlight'),
         swatches(HIGHLIGHTS, cs.hl || 'none', v => setProp({ hl: v === 'none' ? null : v }), true)));
     }
     if (f === 'para') p.append(paraFold(ps));
     if (f === 'effects') p.append(effectsFold(o));
-    if (f === 'family') p.append(row(t('prop.font'), fontPicker(cs, v => setProp({ family: v }))));
-    if (f === 'weight') p.append(row(t('prop.weight'), weightPicker(cs, v => setProp({ weight: v }))));
+    if (f === 'family') main.append(row(t('prop.font'), fontPicker(cs, v => setProp({ family: v }))));
+    if (f === 'weight') main.append(row(t('prop.weight'), weightPicker(cs, v => setProp({ weight: v }))));
     // an angle belongs to one object, never to a tool that has not drawn yet
     if (f === 'angle' && cur.annot) {
-      p.append(row(t('prop.angle'),
+      main.append(row(t('prop.angle'),
         slider(0, 359, 1, o.rot || 0, ' deg', (v, done) => setProp({ rot: v }, done))));
     }
     if (f === 'box') p.append(boxFold(o));
   }
+
+  if (!main.childElementCount) main.remove();
 
   if (texty) {
     const r = V.textRange();
@@ -695,6 +744,7 @@ function paintProps() {
   // edit, duplicate, restack and delete live on the toolbar over the selection
   p.classList.toggle('empty', !p.querySelector('.row'));
   if (narrow.matches) p.append(ui.layers);
+  paintSheet();
 
   const tip = document.createElement('div');
   tip.className = 'tipbox';
@@ -789,6 +839,9 @@ S.on('saved', at => { ui.saveState.classList.add('on'); ui.saveState.textContent
 S.on('saveerror', () => { ui.saveState.classList.remove('on'); ui.saveState.textContent = t('save.failed'); });
 
 /* ---- boot ------------------------------------------------------------ */
+ui.layers.dataset.label = t('app.layers');
+ui.layers.dataset.tab = 'layers';
+
 V.init(ui.viewport);
 paintRail();
 paintChrome();
