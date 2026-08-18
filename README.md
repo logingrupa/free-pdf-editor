@@ -1,0 +1,66 @@
+# Edit PDF
+
+A PDF editor that runs entirely in the browser. Drop a PDF in, change it, download it.
+Nothing is uploaded: no server, no account, no network call after the page loads.
+
+Live: https://roulendz.github.io/edit-pdf/
+
+## What it does
+
+- **Edit the text that is already in the PDF.** Click any line on the page and retype it.
+  The original line is covered with its own background colour (sampled from the page), and
+  the replacement is drawn at the same baseline, size and ink colour.
+- Add text boxes, freehand ink, highlights, rectangles, ellipses, arrows, white-out blocks
+  and images or signatures.
+- Page work: rotate, delete, drag to reorder, and drop a second PDF to append its pages.
+- Undo/redo, zoom, per-page thumbnails.
+- Auto-saves to IndexedDB, so a refresh or a closed tab does not lose the work.
+- Downloads a real PDF: annotations are written as vector text and shapes with pdf-lib,
+  not as a flattened image.
+
+## Keyboard
+
+| Key | Action |
+| --- | --- |
+| E | Edit page text |
+| V | Select / move |
+| T | Text box |
+| P | Pen |
+| H | Highlight |
+| R | Rectangle |
+| O | Ellipse |
+| A | Arrow |
+| W | White-out |
+| I | Image |
+| Ctrl+Z / Ctrl+Shift+Z | Undo / redo |
+| Ctrl+S | Download |
+| Ctrl+= / Ctrl+- | Zoom |
+| Delete | Remove selection |
+
+## How the text replacement works
+
+PDF text is not editable in place: glyphs are drawn from embedded, often subset fonts with
+private encodings. Rewriting a content stream in the browser would need the original font
+programs re-encoded, which is not something a static page can do safely. So this editor
+does what desktop tools do: it masks the original line and draws new text over it, using a
+bundled Unicode font (DejaVu Sans, Serif and Mono, full Latin Extended plus Cyrillic and
+Greek). The line breaking used on screen is the same code the exporter uses, so the preview
+matches the downloaded file exactly.
+
+## Running locally
+
+Any static server works. There is no build step.
+
+```
+python -m http.server 8080
+```
+
+Then open http://localhost:8080/. With Laragon, put the folder in `C:\laragon\www` and it
+is served at http://edit-pdf.test/.
+
+## Stack
+
+- [pdf.js](https://mozilla.github.io/pdf.js/) for rendering and text extraction
+- [pdf-lib](https://pdf-lib.js.org/) plus fontkit for writing the output PDF
+- DejaVu fonts (Bitstream Vera licence)
+- No framework, no bundler, no dependencies at runtime beyond the vendored files

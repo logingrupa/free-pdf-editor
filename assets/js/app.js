@@ -1,0 +1,421 @@
+// UI wiring: drop zone, toolbar, properties, page list, keyboard, download.
+
+import * as S from './store.js';
+import * as V from './viewer.js';
+import { buildPdf } from './exporter.js';
+import { saveBlob, readAsDataURL } from './util.js';
+
+const $ = id => document.getElementById(id);
+const body = document.body;
+const ui = {
+  viewport: $('viewport'), rail: $('rail'), props: $('props'), thumbs: $('thumbs'),
+  fileName: $('fileName'), fileMeta: $('fileMeta'), saveState: $('saveState'),
+  fileInput: $('fileInput'), imgInput: $('imgInput'), toast: $('toast'),
+  busy: $('busy'), busyText: $('busyText'), zoomVal: $('zoomVal'),
+  undoBtn: $('undoBtn'), redoBtn: $('redoBtn'), downloadBtn: $('downloadBtn'),
+};
+
+const COLORS = ['#111827', '#ffffff', '#e11d48', '#f97316', '#f5c542', '#3ecf8e', '#3ea0cf', '#6d5efc'];
+const HIGHLIGHTS = ['#ffe14d', '#a6f36b', '#7ad9ff', '#ff9ad5', '#ffb36b'];
+
+/* ---- chrome ---------------------------------------------------------- */
+let toastTimer = 0;
+function toast(msg) {
+  ui.toast.textContent = msg;
+  ui.toast.hidden = false;
+  requestAnimationFrame(() => ui.toast.classList.add('show'));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    ui.toast.classList.remove('show');
+    setTimeout(() => { ui.toast.hidden = true; }, 200);
+  }, 2600);
+}
+
+function busy(on, text = 'Working...') {
+  ui.busyText.textContent = text;
+  ui.busy.hidden = !on;
+}
+
+const two = n => String(n).padStart(2, '0');
+const hhmm = d => `${two(d.getHours())}:${two(d.getMinutes())}`;
+
+/* ---- opening files --------------------------------------------------- */
+async function openFiles(files) {
+  const pdfs = [...files].filter(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+  if (!pdfs.length) { toast('That is not a PDF'); return; }
+  busy(true, 'Reading PDF...');
+  try {
+    for (const file of pdfs) {
+      const { src, pages } = await V.buildSource(file.name, await file.arrayBuffer());
+      if (!S.hasDoc()) {
+        body.removeAttribute('data-empty');
+        S.setDoc({ fileName: file.name, sources: [src], pages });
+      } else {
+        S.addSource(src, pages);
+        toast(`Added ${pages.length} page${pages.length > 1 ? 's' : ''} from ${file.name}`);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    toast('Could not open that PDF');
+  } finally {
+    busy(false);
+  }
+}
+
+async function restoreSaved() {
+  const saved = await S.loadSaved();
+  if (!saved || !saved.pages || !saved.pages.length) return;
+  body.removeAttribute('data-empty');
+  S.setDoc(saved);
+  toast(`Restored ${saved.fileName} from ${hhmm(new Date(saved.at))}`);
+}
+
+/* ---- top bar --------------------------------------------------------- */
+function paintChrome() {
+  const has = S.hasDoc();
+  ui.downloadBtn.disabled = !has;
+  ui.undoBtn.disabled = !S.canUndo();
+  ui.redoBtn.disabled = !S.canRedo();
+  ui.fileName.textContent = S.state.fileName || '';
+  ui.fileMeta.textContent = has ? `${S.state.pages.length} page${S.state.pages.length > 1 ? 's' : ''}` : '';
+  ui.zoomVal.textContent = Math.round(S.state.zoom * 100) + '%';
+  if (!has) body.setAttribute('data-empty', '1');
+}
+
+ui.fileName.addEventListener('click', () => {
+  ui.fileName.contentEditable = 'true';
+  ui.fileName.focus();
+  document.execCommand('selectAll', false, null);
+});
+ui.fileName.addEventListener('blur', () => {
+  ui.fileName.contentEditable = 'false';
+  const name = ui.fileName.textContent.trim();
+  if (name && name !== S.state.fileName) { S.state.fileName = name; S.touch(null); }
+  paintChrome();
+});
+ui.fileName.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); ui.fileName.blur(); }
+  e.stopPropagation();
+});
+
+$('undoBtn').onclick = () => S.undo();
+$('redoBtn').onclick = () => S.redo();
+$('zoomIn').onclick = () => V.setZoom(S.state.zoom * 1.2);
+$('zoomOut').onclick = () => V.setZoom(S.state.zoom / 1.2);
+ui.zoomVal.onclick = () => V.setZoom(V.fitZoom(), true);
+$('pickBtn').onclick = () => ui.fileInput.click();
+$('pagesToggle').onclick = () => body.setAttribute('data-pages', body.dataset.pages === 'off' ? 'on' : 'off');
+
+$('newBtn').onclick = () => {
+  if (!confirm('Close this document? Saved work in this browser is cleared.')) return;
+  S.closeDoc();
+  body.setAttribute('data-empty', '1');
+};
+
+ui.downloadBtn.onclick = async () => {
+  V.closeEditor(true);
+  busy(true, 'Building PDF...');
+  try {
+    const blob = await buildPdf();
+    const name = S.state.fileName.replace(/\.pdf$/i, '') + '-edited.pdf';
+    saveBlob(blob, name);
+    toast('Downloaded ' + name);
+  } catch (e) {
+    console.error(e);
+    toast('Export failed: ' + e.message);
+  } finally {
+    busy(false);
+  }
+};
+
+ui.fileInput.onchange = e => { openFiles(e.target.files); e.target.value = ''; };
+ui.imgInput.onchange = async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  V.setPendingImage(await readAsDataURL(f));
+  S.setTool('image');
+  toast('Click on the page to place it');
+};
+
+/* ---- drag and drop --------------------------------------------------- */
+let dragDepth = 0;
+window.addEventListener('dragenter', e => { e.preventDefault(); if (dragDepth++ === 0) body.classList.add('dragging'); });
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; body.classList.remove('dragging'); } });
+window.addEventListener('drop', e => {
+  e.preventDefault();
+  dragDepth = 0;
+  body.classList.remove('dragging');
+  if (e.dataTransfer.files.length) openFiles(e.dataTransfer.files);
+});
+
+/* ---- tool rail ------------------------------------------------------- */
+ui.rail.addEventListener('click', e => {
+  const b = e.target.closest('.tool');
+  if (!b) return;
+  if (b.dataset.tool === 'image') { ui.imgInput.click(); return; }
+  S.setTool(b.dataset.tool);
+});
+S.on('needimage', () => ui.imgInput.click());
+S.on('placed', () => S.setTool('select'));
+
+function paintRail() {
+  ui.rail.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === S.state.tool)));
+}
+
+/* ---- properties panel ------------------------------------------------ */
+const FIELDS = {
+  pen: ['color', 'width'],
+  arrow: ['color', 'width'],
+  rect: ['color', 'width', 'fill'],
+  ellipse: ['color', 'width', 'fill'],
+  highlight: ['fill', 'opacity'],
+  whiteout: ['fill'],
+  text: ['color', 'size', 'family', 'face', 'align'],
+  etext: ['color', 'size', 'family', 'face', 'align'],
+  image: [],
+  select: [],
+  edit: [],
+};
+
+const TYPE_NAME = { etext: 'page text', text: 'text box', edit: 'Edit text', select: 'Select' };
+
+function target() {
+  const a = S.annotById(S.state.sel);
+  return a ? { obj: a, type: a.type, annot: true } : { obj: S.state.style[S.state.tool], type: S.state.tool, annot: false };
+}
+
+function setProp(patch) {
+  const t = target();
+  if (t.annot) S.updateAnnot(t.obj.id, patch);
+  else Object.assign(t.obj, patch);
+  paintProps();
+}
+
+function row(labelText, node) {
+  const r = document.createElement('div');
+  r.className = 'row';
+  if (labelText) {
+    const l = document.createElement('label');
+    l.textContent = labelText;
+    r.append(l);
+  }
+  r.append(node);
+  return r;
+}
+
+function swatches(list, current, onPick, withNone) {
+  const wrap = document.createElement('div');
+  wrap.className = 'swatches';
+  const add = (value, label, style) => {
+    const b = document.createElement('button');
+    b.className = 'sw';
+    b.title = label;
+    b.style.cssText = style;
+    b.setAttribute('aria-pressed', String(value === current));
+    b.onclick = () => onPick(value);
+    wrap.append(b);
+  };
+  if (withNone) add('none', 'No fill', 'background:repeating-linear-gradient(45deg,#8884 0 4px,transparent 4px 8px)');
+  list.forEach(c => add(c, c, `background:${c}`));
+  const custom = document.createElement('button');
+  custom.className = 'sw custom';
+  custom.title = 'Custom colour';
+  const inp = document.createElement('input');
+  inp.type = 'color';
+  inp.value = list.includes(current) || !current || current === 'none' ? '#6d5efc' : current;
+  inp.oninput = () => onPick(inp.value);
+  custom.append(inp);
+  wrap.append(custom);
+  return wrap;
+}
+
+function slider(min, max, step, value, unit, onInput) {
+  const wrap = document.createElement('div');
+  wrap.className = 'num';
+  const r = document.createElement('input');
+  r.type = 'range';
+  r.min = min; r.max = max; r.step = step; r.value = value;
+  const out = document.createElement('output');
+  out.textContent = value + unit;
+  r.oninput = () => { out.textContent = r.value + unit; onInput(parseFloat(r.value)); };
+  wrap.append(r, out);
+  return wrap;
+}
+
+function segmented(options, isPressed, onPick) {
+  const wrap = document.createElement('div');
+  wrap.className = 'seg';
+  options.forEach(([value, label, style]) => {
+    const b = document.createElement('button');
+    b.innerHTML = label;
+    if (style) b.style.cssText = style;
+    b.setAttribute('aria-pressed', String(isPressed(value)));
+    b.onclick = () => onPick(value);
+    wrap.append(b);
+  });
+  return wrap;
+}
+
+function paintProps() {
+  const t = target();
+  const p = ui.props;
+  p.textContent = '';
+  if (!S.hasDoc()) return;
+
+  const title = document.createElement('h3');
+  title.textContent = t.annot ? 'Selected ' + (TYPE_NAME[t.type] || t.type) : (TYPE_NAME[t.type] || t.type);
+  p.append(title);
+
+  const fields = FIELDS[t.type] || [];
+  const o = t.obj;
+
+  for (const f of fields) {
+    if (f === 'color') p.append(row('Colour', swatches(COLORS, o.color, v => setProp({ color: v }))));
+    if (f === 'fill') {
+      const list = t.type === 'highlight' ? HIGHLIGHTS : COLORS;
+      p.append(row(t.type === 'rect' || t.type === 'ellipse' ? 'Fill' : 'Colour',
+        swatches(list, o.fill, v => setProp({ fill: v }), t.type === 'rect' || t.type === 'ellipse')));
+    }
+    if (f === 'width') p.append(row('Stroke', slider(0.5, 12, 0.5, o.width, ' pt', v => setProp({ width: v }))));
+    if (f === 'opacity') p.append(row('Opacity', slider(0.1, 1, 0.05, o.opacity, '', v => setProp({ opacity: v }))));
+    if (f === 'size') p.append(row('Size', slider(6, 72, 1, o.size, ' pt', v => setProp({ size: v }))));
+    if (f === 'face') {
+      p.append(row('Style', segmented(
+        [['b', '<b>B</b>', 'font-weight:700'], ['i', '<i>I</i>', 'font-style:italic']],
+        v => (v === 'b' ? !!o.bold : !!o.italic),
+        v => setProp(v === 'b' ? { bold: !o.bold } : { italic: !o.italic }),
+      )));
+    }
+    if (f === 'family') {
+      p.append(row('Font', segmented(
+        [['sans', 'Aa', 'font-family:ui-sans-serif,sans-serif'],
+          ['serif', 'Aa', 'font-family:Georgia,serif'],
+          ['mono', 'Aa', 'font-family:ui-monospace,monospace']],
+        v => v === (o.family || 'sans'),
+        v => setProp({ family: v }),
+      )));
+    }
+    if (f === 'align') {
+      p.append(row('Align', segmented(
+        [['left', 'L'], ['center', 'C'], ['right', 'R']],
+        v => v === o.align,
+        v => setProp({ align: v }),
+      )));
+    }
+  }
+
+  if (t.annot) {
+    const del = document.createElement('button');
+    del.className = 'btn wide del';
+    del.textContent = 'Delete';
+    del.onclick = () => S.removeAnnot(t.obj.id);
+    p.append(row('', del));
+    if (t.type === 'text' || t.type === 'etext') {
+      const ed = document.createElement('button');
+      ed.className = 'btn wide';
+      ed.textContent = 'Edit text';
+      ed.onclick = () => V.openEditor(S.pageById(t.obj.page), t.obj, false);
+      p.append(row('', ed));
+    }
+  }
+
+  const tip = document.createElement('div');
+  tip.className = 'tipbox';
+  tip.textContent = t.annot
+    ? 'Drag to move, side handles to set the wrapping width. Delete key removes it.'
+    : t.type === 'edit'
+      ? 'Click any line of text on the page to rewrite it. The original line is covered with its own background colour.'
+      : t.type === 'select'
+        ? 'Click something on the page to move or restyle it. Drop another PDF to append its pages.'
+        : 'Drag on the page to draw. Press E to go back to editing text.';
+  p.append(tip);
+}
+
+/* ---- page thumbnails ------------------------------------------------- */
+const ICON = {
+  rotL: '<svg viewBox="0 0 24 24"><path d="M3 8h10a5 5 0 0 1 0 10H8"/><path d="M6 5L3 8l3 3"/></svg>',
+  rotR: '<svg viewBox="0 0 24 24"><path d="M21 8H11a5 5 0 0 0 0 10h5"/><path d="M18 5l3 3-3 3"/></svg>',
+  del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
+};
+
+let thumbQueue = Promise.resolve();
+function paintThumbs() {
+  ui.thumbs.textContent = '';
+  S.state.pages.forEach((p, i) => {
+    const d = document.createElement('div');
+    d.className = 'thumb';
+    d.draggable = true;
+    d.dataset.index = i;
+    const c = document.createElement('canvas');
+    c.style.aspectRatio = `${V.dispW(p)} / ${V.dispH(p)}`;
+    const n = document.createElement('div');
+    n.className = 'thumb-n';
+    n.textContent = i + 1;
+    const acts = document.createElement('div');
+    acts.className = 'thumb-acts';
+    acts.innerHTML = `<button data-a="rotL" title="Rotate left">${ICON.rotL}</button>`
+      + `<button data-a="rotR" title="Rotate right">${ICON.rotR}</button>`
+      + `<button data-a="del" title="Delete page">${ICON.del}</button>`;
+    acts.onclick = e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      e.stopPropagation();
+      if (b.dataset.a === 'del') {
+        if (S.state.pages.length === 1) { toast('That is the last page'); return; }
+        S.deletePage(p.id);
+      } else S.rotatePage(p.id, b.dataset.a === 'rotL' ? -1 : 1);
+    };
+    d.append(c, n, acts);
+    d.onclick = () => V.scrollToPage(p.id);
+    d.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', String(i)));
+    d.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); d.classList.add('drag-over'); });
+    d.addEventListener('dragleave', () => d.classList.remove('drag-over'));
+    d.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      d.classList.remove('drag-over');
+      const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      if (!Number.isNaN(from)) S.movePage(from, i);
+    });
+    ui.thumbs.append(d);
+    thumbQueue = thumbQueue.then(() => V.renderThumb(p, c, 150)).catch(() => {});
+  });
+}
+
+/* ---- keyboard -------------------------------------------------------- */
+const KEYS = { e: 'edit', v: 'select', t: 'text', p: 'pen', h: 'highlight', r: 'rect', o: 'ellipse', a: 'arrow', w: 'whiteout' };
+window.addEventListener('keydown', e => {
+  if (V.isEditing() || e.target.isContentEditable || /input|textarea/i.test(e.target.tagName)) return;
+  const meta = e.ctrlKey || e.metaKey;
+  if (meta && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? S.redo() : S.undo(); return; }
+  if (meta && e.key.toLowerCase() === 'y') { e.preventDefault(); S.redo(); return; }
+  if (meta && e.key.toLowerCase() === 's') { e.preventDefault(); ui.downloadBtn.click(); return; }
+  if (meta && (e.key === '=' || e.key === '+')) { e.preventDefault(); V.setZoom(S.state.zoom * 1.2); return; }
+  if (meta && e.key === '-') { e.preventDefault(); V.setZoom(S.state.zoom / 1.2); return; }
+  if (meta) return;
+  if (e.key === 'Escape') { S.setTool('select'); S.select(null); return; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && S.state.sel) { e.preventDefault(); S.removeAnnot(S.state.sel); return; }
+  if (e.key === 'i') { ui.imgInput.click(); return; }
+  const tool = KEYS[e.key.toLowerCase()];
+  if (tool && S.hasDoc()) S.setTool(tool);
+});
+
+/* ---- events ---------------------------------------------------------- */
+S.on('doc', () => { paintChrome(); paintThumbs(); paintProps(); });
+S.on('annots', () => paintChrome());
+S.on('sel', () => paintProps());
+S.on('tool', () => { paintRail(); paintProps(); });
+S.on('history', () => paintChrome());
+S.on('zoom', () => paintChrome());
+S.on('dirty', () => { ui.saveState.hidden = false; ui.saveState.classList.remove('on'); ui.saveState.textContent = 'Saving...'; });
+S.on('saved', at => { ui.saveState.classList.add('on'); ui.saveState.textContent = 'Saved ' + hhmm(new Date(at)); });
+S.on('saveerror', () => { ui.saveState.classList.remove('on'); ui.saveState.textContent = 'Not saved'; });
+
+/* ---- boot ------------------------------------------------------------ */
+V.init(ui.viewport);
+paintRail();
+paintChrome();
+restoreSaved();
