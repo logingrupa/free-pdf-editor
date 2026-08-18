@@ -2,7 +2,7 @@
 // layer and all pointer work.
 
 import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit, addAnnot, discardAnnot, removeAnnot, duplicateAnnot, restackAnnot, rotatePage, deletePage, duplicatePage, touch } from './store.js';
-import { uid, clamp, invert, mul } from './util.js';
+import { uid, clamp, invert, mul, turn, canTurn, rotCenter } from './util.js';
 import { ICON } from './icons.js';
 import { openMenu, closeMenu, onLongPress } from './menu.js';
 import { FAMILIES, LINE_H, cssFamily, fontKey, loadFont, fontReady, layout, ascentOf, matchFace, warmFaces, padBox, hasBox, boxPath } from './text.js';
@@ -76,6 +76,17 @@ function penPath(a) {
   return a.pts.map((pt, i) => (i ? 'L' : 'M') + pt[0].toFixed(2) + ' ' + pt[1].toFixed(2)).join(' ');
 }
 
+/** How tall a text box lays out, with a guess while its face is still loading. */
+function laidHeight(a) {
+  const f = fontReady(fontKey(a));
+  return f ? layout(a, f).height : a.size * LINE_H;
+}
+
+/** The middle of the drawn geometry, which is what a rotation turns about. */
+const spinOrigin = a => rotCenter(a, a.type === 'text' ? laidHeight(a) : 0);
+
+const spin = a => (a.rot ? `rotate(${a.rot} ${spinOrigin(a).map(v => v.toFixed(2)).join(' ')})` : '');
+
 export function box(a) {
   if (a.type === 'pen') {
     const xs = a.pts.map(p => p[0]), ys = a.pts.map(p => p[1]);
@@ -85,10 +96,8 @@ export function box(a) {
     return { x: Math.min(a.x1, a.x2), y: Math.min(a.y1, a.y2), w: Math.abs(a.x2 - a.x1), h: Math.abs(a.y2 - a.y1) };
   }
   if (a.type === 'text' || a.type === 'etext') {
-    const f = fontReady(fontKey(a));
-    const h = f ? layout(a, f).height : a.size * LINE_H;
     // the handles wrap what is drawn: the padded box, its border and its shadow
-    const b = padBox(a, h);
+    const b = padBox(a, laidHeight(a));
     const grow = (hasBox(a) ? (a.boxWidth || 0) / 2 : 0);
     const x0 = b.x - grow, y0 = b.y - grow;
     const x1 = b.x + b.w + grow + (a.shadow || 0), y1 = b.y + b.h + grow + (a.shadow || 0);
@@ -152,17 +161,19 @@ function appendText(g, a) {
 
 function drawAnnot(a) {
   const g = el('g', { class: 'an', 'data-id': a.id });
+  // a drag writes the outer transform, so a rotation gets a group of its own
+  const spun = a.rot ? el('g', { transform: spin(a) }) : g;
   const stroke = { stroke: a.color, 'stroke-width': a.width, fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
 
   if (a.type === 'pen') {
-    g.append(el('path', { d: penPath(a), ...stroke, 'pointer-events': 'none' }));
-    g.append(el('path', { class: 'hit', d: penPath(a), fill: 'none', 'stroke-width': Math.max(a.width, 10), 'pointer-events': 'stroke' }));
+    spun.append(el('path', { d: penPath(a), ...stroke, 'pointer-events': 'none' }));
+    spun.append(el('path', { class: 'hit', d: penPath(a), fill: 'none', 'stroke-width': Math.max(a.width, 10), 'pointer-events': 'stroke' }));
   } else if (a.type === 'arrow') {
-    g.append(el('line', { x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, ...stroke, 'pointer-events': 'none' }));
-    g.append(el('path', { d: headPath(a), ...stroke, 'pointer-events': 'none' }));
-    g.append(el('line', { class: 'hit', x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, 'stroke-width': 12, 'pointer-events': 'stroke' }));
+    spun.append(el('line', { x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, ...stroke, 'pointer-events': 'none' }));
+    spun.append(el('path', { d: headPath(a), ...stroke, 'pointer-events': 'none' }));
+    spun.append(el('line', { class: 'hit', x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, 'stroke-width': 12, 'pointer-events': 'stroke' }));
   } else if (a.type === 'rect' || a.type === 'whiteout' || a.type === 'highlight') {
-    g.append(el('rect', {
+    spun.append(el('rect', {
       x: a.x, y: a.y, width: Math.max(a.w, 0), height: Math.max(a.h, 0),
       fill: a.fill && a.fill !== 'none' ? a.fill : 'none',
       'fill-opacity': a.opacity !== undefined ? a.opacity : 1,
@@ -170,19 +181,20 @@ function drawAnnot(a) {
       'pointer-events': 'all',
     }));
   } else if (a.type === 'ellipse') {
-    g.append(el('ellipse', {
+    spun.append(el('ellipse', {
       cx: a.x + a.w / 2, cy: a.y + a.h / 2, rx: Math.abs(a.w / 2), ry: Math.abs(a.h / 2),
       fill: a.fill && a.fill !== 'none' ? a.fill : 'none',
       stroke: a.color, 'stroke-width': a.width, 'pointer-events': 'all',
     }));
   } else if (a.type === 'image') {
-    g.append(el('image', { href: a.src, x: a.x, y: a.y, width: a.w, height: a.h, preserveAspectRatio: 'none', 'pointer-events': 'all' }));
+    spun.append(el('image', { href: a.src, x: a.x, y: a.y, width: a.w, height: a.h, preserveAspectRatio: 'none', 'pointer-events': 'all' }));
   } else if (a.type === 'etext') {
-    g.append(el('rect', { x: a.mx, y: a.my, width: a.mw, height: a.mh, fill: a.bg, stroke: 'none', 'pointer-events': 'all' }));
-    appendText(g, a);
+    spun.append(el('rect', { x: a.mx, y: a.my, width: a.mw, height: a.mh, fill: a.bg, stroke: 'none', 'pointer-events': 'all' }));
+    appendText(spun, a);
   } else if (a.type === 'text') {
-    appendText(g, a);
+    appendText(spun, a);
   }
+  if (spun !== g) g.append(spun);
   return g;
 }
 
@@ -422,12 +434,14 @@ function paintTextLayer(p, host) {
 }
 
 /* ---- overlay --------------------------------------------------------- */
+const SPIN_ARM = 22;        // screen px from the bottom edge to the turn handle
+
 function drawSelection(p, host) {
   const a = annotById(state.sel);
   if (!a || a.page !== p.id) return;
   const b = box(a);
   const s = 7 / (state.zoom || 1);           // handles keep a constant screen size
-  const sel = el('g', { class: 'sel' });
+  const sel = el('g', { class: 'sel', transform: spin(a) });
   sel.append(el('rect', { class: 'selbox', x: b.x - 2, y: b.y - 2, width: b.w + 4, height: b.h + 4 }));
 
   const handle = (hx, hy, name) => el('rect', { class: 'h', 'data-h': name, x: hx - s / 2, y: hy - s / 2, width: s, height: s, rx: s / 4 });
@@ -440,6 +454,12 @@ function drawSelection(p, host) {
       handle(b.x, b.y, 'nw'), handle(b.x + b.w, b.y, 'ne'),
       handle(b.x, b.y + b.h, 'sw'), handle(b.x + b.w, b.y + b.h, 'se'),
     );
+  }
+  // below the box, where the toolbar over the selection cannot cover it
+  if (canTurn(a)) {
+    const mid = b.x + b.w / 2, arm = b.y + b.h + SPIN_ARM / (state.zoom || 1);
+    sel.append(el('line', { class: 'spinarm', x1: mid, y1: b.y + b.h + 2, x2: mid, y2: arm }));
+    sel.append(el('circle', { class: 'h spinner', 'data-h': 'spin', cx: mid, cy: arm, r: s * 0.62 }));
   }
   host.append(sel);
 }
@@ -482,18 +502,23 @@ function buildBar(a) {
 }
 
 /** Sit the toolbar clear of the selection, flipped below when the top is tight. */
-function placeBar(rec, b) {
+function placeBar(rec, a) {
+  const b = box(a);
+  const [cx, cy] = spinOrigin(a);
   const m = rec.g.getScreenCTM();
   const host = rec.page.getBoundingClientRect();
   const pts = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
+    .map(([x, y]) => turn(cx, cy, x, y, a.rot || 0))
     .map(([x, y]) => new DOMPoint(x, y).matrixTransform(m));
   const xs = pts.map(q => q.x - host.left), ys = pts.map(q => q.y - host.top);
   const gap = 9;
   const w = bar.offsetWidth, h = bar.offsetHeight;
   const y = Math.min(...ys) - h - gap;
   bar.style.left = clamp((Math.min(...xs) + Math.max(...xs)) / 2 - w / 2, 2, Math.max(2, host.width - w - 2)) + 'px';
-  // above the page top would land on the page before it, so flip under the box
-  bar.style.top = (y < 2 ? Math.max(...ys) + gap : y) + 'px';
+  // above the page top would land on the page before it, so flip under the box,
+  // clearing the turn handle that hangs there
+  const under = Math.max(...ys) + (canTurn(a) ? SPIN_ARM + gap + 5 : gap);
+  bar.style.top = (y < 2 ? under : y) + 'px';
 }
 
 /** Show, move or drop the one toolbar, from whatever the selection now is. */
@@ -511,7 +536,7 @@ function updateBar() {
     barFor = want;
   }
   if (bar.parentElement !== rec.page) rec.page.append(bar);
-  placeBar(rec, box(a));
+  placeBar(rec, a);
 }
 
 /** Hide the toolbar while a gesture runs, and bring it back on release. */
@@ -721,7 +746,10 @@ function onDown(ev, p) {
 
   if (tool === 'select' || tool === 'edit') {
     const h = ev.target.closest('.h');
-    if (h && state.sel) return startResize(ev, p, annotById(state.sel), h.dataset.h);
+    if (h && state.sel) {
+      const held = annotById(state.sel);
+      return h.dataset.h === 'spin' ? startSpin(ev, p, held) : startResize(ev, p, held, h.dataset.h);
+    }
     const hit = ev.target.closest('.an');
     if (hit) {
       select(hit.dataset.id);
@@ -954,7 +982,9 @@ function startMove(ev, p, a) {
   };
   const paint = onFrame(() => {
     const tr = `translate(${dx} ${dy})`;
-    for (const n of live()) if (n) n.setAttribute('transform', tr);
+    const [node2, sel2] = live();
+    if (node2) node2.setAttribute('transform', tr);
+    if (sel2) sel2.setAttribute('transform', `${tr} ${spin(a)}`);   // the frame keeps its angle
   });
 
   rec.svg.setPointerCapture(ev.pointerId);
@@ -985,20 +1015,78 @@ function startMove(ev, p, a) {
   rec.svg.addEventListener('pointercancel', up);
 }
 
-function startResize(ev, p, a, h) {
+/** Drag the handle above the box to turn it. Shift snaps to a 15 degree step. */
+function startSpin(ev, p, a) {
   ev.stopPropagation();
   const rec = wraps.get(p.id);
-  const from = JSON.parse(JSON.stringify(a));
+  const [cx, cy] = spinOrigin(a);       // turning does not move it, so read it once
+  const start = local(rec, ev);
+  const base = a.rot || 0;
+  const from = Math.atan2(start.y - cy, start.x - cx) * 180 / Math.PI;
   let moved = false;
   rec.svg.setPointerCapture(ev.pointerId);
   const repaint = onFrame(() => paintOverlay(p.id));
 
   const move = e => {
-    const q = local(rec, e);
     if (!moved) { moved = true; commit(); muteBar(true); }
+    const q = local(rec, e);
+    let deg = base + Math.atan2(q.y - cy, q.x - cx) * 180 / Math.PI - from;
+    if (e.shiftKey) deg = Math.round(deg / 15) * 15;
+    a.rot = ((Math.round(deg * 10) / 10) % 360 + 360) % 360;
+    repaint();
+  };
+  const up = () => {
+    endGesture = null;
+    repaint.cancel();
+    rec.svg.removeEventListener('pointermove', move);
+    rec.svg.removeEventListener('pointerup', up);
+    rec.svg.removeEventListener('pointercancel', up);
+    if (!moved) return;
+    barMuted = false;
+    touch(p.id);
+    paintOverlay(p.id);
+  };
+  endGesture = up;
+  rec.svg.addEventListener('pointermove', move);
+  rec.svg.addEventListener('pointerup', up);
+  rec.svg.addEventListener('pointercancel', up);
+}
+
+/** The corner a resize holds still: the one opposite the handle being dragged. */
+function fixedCorner(from, h) {
+  if (h === 'e') return { x: from.x, y: from.y };
+  if (h === 'w') return { x: from.x + from.w, y: from.y };
+  return { x: h.includes('w') ? from.x + from.w : from.x, y: h.includes('n') ? from.y + from.h : from.y };
+}
+
+function startResize(ev, p, a, h) {
+  ev.stopPropagation();
+  const rec = wraps.get(p.id);
+  const from = JSON.parse(JSON.stringify(a));
+  const rot = a.rot || 0;
+  // a turned box is resized in its own frame, with the opposite corner pinned
+  // where it is on screen, so the box grows the way it looks like it should
+  const anchor = fixedCorner(from, h);
+  const [c0x, c0y] = spinOrigin(from);
+  const [px, py] = turn(c0x, c0y, anchor.x, anchor.y, rot);
+  let moved = false;
+  rec.svg.setPointerCapture(ev.pointerId);
+  const repaint = onFrame(() => paintOverlay(p.id));
+
+  const move = e => {
+    if (!moved) { moved = true; commit(); muteBar(true); }
+    const s = local(rec, e);
     if (a.type === 'arrow') {
-      if (h === 'p1') { a.x1 = q.x; a.y1 = q.y; } else { a.x2 = q.x; a.y2 = q.y; }
-    } else if (a.type === 'text' || a.type === 'etext') {
+      if (h === 'p1') { a.x1 = s.x; a.y1 = s.y; } else { a.x2 = s.x; a.y2 = s.y; }
+      repaint();
+      return;
+    }
+    const [tx, ty] = turn(px, py, s.x, s.y, -rot);
+    const q = { x: anchor.x + tx - px, y: anchor.y + ty - py };
+    // every frame starts from the box as it was, so the pinning never compounds
+    a.x = from.x; a.y = from.y; a.w = from.w;
+    if (from.h !== undefined) a.h = from.h;
+    if (a.type === 'text' || a.type === 'etext') {
       if (h === 'e') a.w = Math.max(24, q.x - a.x);
       else { const right = from.x + from.w; a.x = Math.min(q.x, right - 24); a.w = right - a.x; }
     } else {
@@ -1007,6 +1095,11 @@ function startResize(ev, p, a, h) {
       if (h.includes('e')) a.w = Math.max(6, q.x - a.x);
       if (h.includes('n')) { a.y = Math.min(q.y, b - 6); a.h = b - a.y; }
       if (h.includes('s')) a.h = Math.max(6, q.y - a.y);
+    }
+    if (rot) {
+      const [ax, ay] = turn(...spinOrigin(a), anchor.x, anchor.y, rot);
+      a.x += px - ax;
+      a.y += py - ay;
     }
     repaint();
   };
@@ -1062,7 +1155,9 @@ export function openEditor(p, a, isNew) {
     st.left = '0';
     st.top = '0';
     st.transformOrigin = '0 0';
-    st.transform = `matrix(${m.a},${m.b},${m.c},${m.d},${m.e},${m.f}) translate(${a.x}px,${a.y}px)`;
+    const [cx, cy] = spinOrigin(a);
+    const spun = a.rot ? `translate(${cx}px,${cy}px) rotate(${a.rot}deg) translate(${-cx}px,${-cy}px) ` : '';
+    st.transform = `matrix(${m.a},${m.b},${m.c},${m.d},${m.e},${m.f}) ${spun}translate(${a.x}px,${a.y}px)`;
     st.width = a.w + 'px';
     st.fontFamily = `${cssFamily(key)}, sans-serif`;
     st.fontSize = a.size + 'px';

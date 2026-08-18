@@ -150,6 +150,8 @@ body:not([data-empty]) .viewport{display:block}
 .ov .h[data-h="e"],.ov .h[data-h="w"]{cursor:ew-resize}
 .ov .h[data-h="n"],.ov .h[data-h="s"]{cursor:ns-resize}
 .ov .h[data-h="p1"],.ov .h[data-h="p2"]{cursor:move}
+.ov .spinarm{stroke:var(--accent);stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
+.ov .h.spinner{cursor:grab}
 .pagenum{position:absolute;left:50%;transform:translateX(-50%);bottom:-19px;font-size:11px;color:var(--fg-mute)}
 .selbar{
   position:absolute;z-index:15;display:flex;gap:2px;padding:3px;

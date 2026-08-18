@@ -53,6 +53,22 @@ export const mul = (m1, m2) => [
 /** Apply [a,b,c,d,e,f] to a point. */
 export const apply = ([a, b, c, d, e, f], x, y) => [a * x + c * y + e, b * x + d * y + f];
 
+/** Turn a point about a centre. Display space is y down, so this reads clockwise. */
+export function turn(cx, cy, x, y, deg) {
+  if (!deg) return [x, y];
+  const t = (deg * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  const dx = x - cx, dy = y - cy;
+  return [cx + dx * c - dy * s, cy + dx * s + dy * c];
+}
+
+// A rotation turns a text box about the middle of its padded box, and the
+// padding falls out of that middle, so only the laid-out height is needed.
+export const canTurn = a => a.type !== 'etext' && a.type !== 'pen' && a.type !== 'arrow';
+
+/** The point an annotation turns about: the middle of what it draws. */
+export const rotCenter = (a, height = 0) =>
+  (a.type === 'text' ? [a.x + a.w / 2, a.y + height / 2] : [a.x + a.w / 2, a.y + a.h / 2]);
+
 export function saveBlob(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

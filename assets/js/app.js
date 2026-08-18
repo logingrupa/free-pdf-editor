@@ -224,13 +224,13 @@ function paintRail() {
 const FIELDS = {
   pen: ['color', 'width'],
   arrow: ['color', 'width'],
-  rect: ['color', 'width', 'fill'],
-  ellipse: ['color', 'width', 'fill'],
-  highlight: ['fill', 'opacity'],
-  whiteout: ['fill'],
-  text: ['color', 'size', 'family', 'face', 'align', 'lh', 'box'],
+  rect: ['color', 'width', 'fill', 'angle'],
+  ellipse: ['color', 'width', 'fill', 'angle'],
+  highlight: ['fill', 'opacity', 'angle'],
+  whiteout: ['fill', 'angle'],
+  text: ['color', 'size', 'family', 'face', 'align', 'lh', 'angle', 'box'],
   etext: ['color', 'size', 'family', 'face', 'align', 'lh', 'box'],
-  image: [],
+  image: ['angle'],
   select: [],
   edit: [],
 };
@@ -533,6 +533,11 @@ function paintProps() {
     if (f === 'lh') {
       p.append(row(t('prop.lineHeight'),
         slider(0.8, 3, 0.05, o.lh || LINE_H, '', (v, done) => setProp({ lh: v }, done))));
+    }
+    // an angle belongs to one object, never to a tool that has not drawn yet
+    if (f === 'angle' && cur.annot) {
+      p.append(row(t('prop.angle'),
+        slider(0, 359, 1, o.rot || 0, ' deg', (v, done) => setProp({ rot: v }, done))));
     }
     if (f === 'box') p.append(boxFold(o));
   }
