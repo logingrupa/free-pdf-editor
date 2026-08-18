@@ -17,6 +17,7 @@ assets/js/theme.js    theme preference, shared by both pages
 assets/js/site.js     landing page scroll chrome
 assets/js/*.js        editor modules (store, viewer, text, exporter, util, app)
 vendor/               pdf.js, pdf-lib, fontkit, Liberation fonts
+vendor/fonts/         Fira Sans and IBM Plex, fetched a face at a time
 assets/img/og.jpg     social card, 1200x630 (JPEG: WhatsApp is unreliable with PNG)
 sitemap.xml           the two indexable URLs
 robots.txt            only takes effect on a custom domain, see the note inside
@@ -101,5 +102,5 @@ is served at http://edit-pdf.test/.
 
 - [pdf.js](https://mozilla.github.io/pdf.js/) for rendering and text extraction
 - [pdf-lib](https://pdf-lib.js.org/) plus fontkit for writing the output PDF
-- Liberation fonts (SIL Open Font License 1.1)
+- Liberation fonts, Fira Sans and IBM Plex (SIL Open Font License 1.1)
 - No framework, no bundler, no dependencies at runtime beyond the vendored files
