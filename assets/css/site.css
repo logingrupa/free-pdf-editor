@@ -250,6 +250,35 @@ tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
 .faq-answer{padding:0 40px 22px 0;color:var(--fg-dim);font-size:15.2px}
 .faq-answer p+p{margin-top:12px}
 
+/* ---- why we build ---------------------------------------------------- */
+.creed{
+  position:relative;overflow:hidden;text-align:center;
+  padding:clamp(46px,6vw,74px) clamp(22px,5vw,64px);
+  border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-2);
+}
+.creed::before{
+  content:"";position:absolute;inset:-42% 18% auto;height:340px;
+  background:radial-gradient(50% 50% at 50% 50%,var(--glow),transparent 70%);
+}
+.creed>*{position:relative}
+.verse{margin:0 0 clamp(28px,4vw,42px)}
+.verse p{
+  margin:0 auto 15px;max-width:19ch;text-wrap:balance;
+  font-size:clamp(1.5rem,3.2vw,2.3rem);line-height:1.22;letter-spacing:-.03em;font-weight:620;
+}
+.verse cite{
+  display:block;font:500 11px/1 var(--font-mono);letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent);font-style:normal;
+}
+.creed-copy{max-width:62ch;margin:0 auto;text-align:left;color:var(--fg-dim);font-size:15.4px}
+.creed-copy p+p{margin-top:15px}
+.creed-copy a{color:var(--fg);text-decoration-color:var(--accent)}
+.creed-copy a:hover{color:var(--accent)}
+.creed-sign{
+  max-width:62ch;margin:clamp(28px,4vw,40px) auto 0;padding-top:24px;
+  border-top:1px solid var(--line);font-weight:560;color:var(--fg);
+}
+
 /* ---- closing cta ----------------------------------------------------- */
 .final{
   text-align:center;padding:clamp(52px,7vw,86px) 26px;
@@ -274,7 +303,12 @@ tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
 .footer-col span{font:500 10.5px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-mute);margin-bottom:3px}
 .footer-col a{color:var(--fg-dim);text-decoration:none;font-size:14.2px}
 .footer-col a:hover{color:var(--fg)}
-.footer-bottom{margin-top:38px;padding-top:20px;border-top:1px solid var(--line);font-size:13.5px;color:var(--fg-mute)}
+.footer-bottom{
+  max-width:80ch;margin-top:38px;padding-top:20px;border-top:1px solid var(--line);
+  font-size:13.5px;color:var(--fg-mute);
+}
+.footer-bottom a{color:var(--fg-dim);text-decoration-color:var(--line)}
+.footer-bottom a:hover{color:var(--fg)}
 
 /* ---- scroll reveal --------------------------------------------------- */
 [data-reveal]{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
@@ -285,6 +319,8 @@ tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
   .cards,.steps{grid-template-columns:1fr 1fr}
   .proof{grid-template-columns:1fr}
   .zeros{grid-template-columns:1fr 1fr}
+  /* five links plus the CTA do not fit; the footer still carries these two */
+  .nav-links a[href="#what-it-does"],.nav-links a[href="#privacy"]{display:none}
 }
 @media (max-width:660px){
   .nav-links{display:none}

@@ -17,6 +17,7 @@ assets/js/theme.js    theme preference, shared by both pages
 assets/js/site.js     landing page scroll chrome
 assets/js/*.js        editor modules (store, viewer, text, exporter, util, app)
 vendor/               pdf.js, pdf-lib, fontkit, DejaVu fonts
+assets/img/og.jpg     social card, 1200x630 (JPEG: WhatsApp is unreliable with PNG)
 sitemap.xml           the two indexable URLs
 robots.txt            only takes effect on a custom domain, see the note inside
 ```
@@ -39,6 +40,13 @@ the HTML that loads them lives.
 
 White-out and rectangles cover text, they do not remove it. The original text objects stay
 in the file and a text extractor can still read them, so this is not redaction.
+
+## Why it exists
+
+Written by church members of LOGINGRUPA in Lielvārde, Latvia, part of Spirit and Truth
+city church, alongside ClearWord (sound.kingdom.lv). It is free because what we were
+given was free. The landing page says so under "Why we build", and both pages carry the
+same statement as a comment at the top of `<body>`.
 
 ## Theming
 
