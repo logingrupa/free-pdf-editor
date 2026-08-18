@@ -138,9 +138,17 @@
     <button class="tool" data-tool="image" data-i18n-title="tool.image" title="Place image or signature (I)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5L6 21"/></svg></button>
   </nav>
 
-  <aside class="pages" id="pagesPanel" data-i18n-label="app.pages" aria-label="Pages">
-    <div class="pages-head"><span data-i18n="app.pages">Pages</span><button class="btn icon sm" id="pagesToggle" data-i18n-title="app.pagesHide" title="Hide page list"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button></div>
+  <aside class="side" id="sidePanel" data-view="pages" data-i18n-label="app.side" aria-label="Pages and layers">
+    <div class="side-head">
+      <div class="side-tabs" id="sideTabs">
+        <button class="side-tab" data-view="pages" aria-pressed="true" data-i18n="app.pages">Pages</button>
+        <button class="side-tab" data-view="layers" aria-pressed="false" data-i18n="app.layers">Layers</button>
+      </div>
+      <button class="btn icon sm" id="pinToggle" aria-pressed="false" data-i18n-title="app.pin" title="Keep this tab open"><svg viewBox="0 0 24 24"><path d="M9.5 3h5l-.8 6 3.3 2.6V14H7v-2.4L10.3 9 9.5 3z"/><path d="M12 14v7"/></svg></button>
+      <button class="btn icon sm" id="sideToggle" data-i18n-title="app.sideHide" title="Hide the panel"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    </div>
     <div class="thumbs" id="thumbs"></div>
+    <div class="layers" id="layers"></div>
   </aside>
 
   <section class="stage" id="stage">

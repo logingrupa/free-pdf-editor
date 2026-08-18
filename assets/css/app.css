@@ -1,5 +1,5 @@
 /* Editor layout metrics. Colour tokens live in theme.css. */
-:root{ --r:10px; --rail:56px; --pages:168px; --props:236px; --top:54px }
+:root{ --r:10px; --rail:56px; --pages:180px; --props:236px; --top:54px }
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -92,19 +92,29 @@ body:not([data-empty]) .rail{display:flex}
 .tool[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
 .tool svg{width:19px;height:19px}
 
-.pages{
+.side{
   width:var(--pages);flex:none;display:none;flex-direction:column;min-height:0;
   background:var(--bg-2);border-right:1px solid var(--line);
 }
-body:not([data-empty]) .pages{display:flex}
+body:not([data-empty]) .side{display:flex}
 /* collapsed to a strip, never hidden, or the toggle goes with it */
-body[data-pages="off"] .pages{width:36px}
-body[data-pages="off"] .pages-head{justify-content:center;padding:8px 0}
-body[data-pages="off"] .pages-head span{display:none}
-body[data-pages="off"] .thumbs{display:none}
-body[data-pages="off"] #pagesToggle svg{transform:rotate(180deg)}
-.pages-head{display:flex;align-items:center;justify-content:space-between;padding:8px 8px 8px 12px;font-size:12px;color:var(--fg-mute);text-transform:uppercase;letter-spacing:.08em}
-.thumbs{flex:1;overflow-y:auto;padding:4px 8px 16px;display:flex;flex-direction:column;gap:8px}
+body[data-side="off"] .side{width:36px}
+body[data-side="off"] .side-head{justify-content:center;padding:8px 0;border-bottom:0}
+body[data-side="off"] .side-tabs,body[data-side="off"] #pinToggle{display:none}
+body[data-side="off"] .side .thumbs,body[data-side="off"] .side .layers{display:none}
+body[data-side="off"] #sideToggle svg{transform:rotate(180deg)}
+.side-head{display:flex;align-items:center;gap:2px;padding:6px 5px;border-bottom:1px solid var(--line)}
+.side-tabs{flex:1;display:flex;gap:2px;min-width:0}
+.side-tab{
+  flex:1;min-width:0;height:26px;padding:0 4px;border:0;border-radius:7px;background:transparent;
+  font:inherit;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-mute);
+  cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.side-tab:hover{color:var(--fg)}
+.side-tab[aria-pressed="true"]{background:var(--bg-3);color:var(--fg)}
+#pinToggle[aria-pressed="true"]{color:var(--accent)}
+.thumbs{flex:1;overflow-y:auto;padding:8px;display:none;flex-direction:column;gap:8px}
+.side[data-view="pages"] .thumbs{display:flex}
 .thumb{position:relative;border-radius:8px;cursor:pointer;outline:2px solid transparent;transition:outline-color .12s}
 .thumb canvas{display:block;width:100%;height:auto;border-radius:6px;background:var(--paper);box-shadow:0 1px 6px rgba(0,0,0,.35)}
 .thumb.active{outline-color:var(--accent)}
@@ -183,11 +193,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 }
 .num input[type=number]:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
 .num .unit{flex:0 0 auto;font-size:12px;color:var(--fg-mute)}
-.layers{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
-.layers h3{margin:0 0 8px}
+.layers{flex:1;overflow-y:auto;padding:8px;display:none;flex-direction:column;gap:4px}
+.side[data-view="layers"] .layers{display:flex}
+.layers-page{margin:0 2px 4px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-mute)}
 .layer{
   display:flex;align-items:center;gap:8px;min-width:0;
-  padding:6px 8px;margin-bottom:4px;border:1px solid transparent;border-radius:8px;
+  padding:6px 8px;border:1px solid transparent;border-radius:8px;
   background:var(--bg-3);cursor:grab;font-size:12px;
 }
 .layer:hover{border-color:var(--line)}
@@ -225,7 +236,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   .save-state{width:8px;height:8px;flex:none;margin:0 2px;padding:0;border-radius:50%;background:var(--fg-mute);font-size:0;overflow:hidden}
   .save-state.on{background:var(--ok)}
   body:not([data-empty]) .props.empty{display:none}
-  .pages{display:none!important}
+  .side{display:none!important}
+  .props .layers{display:flex;flex:1 1 100%;max-height:32vh;padding:10px 0 0;border-top:1px solid var(--line)}
   .props{position:fixed;left:0;right:0;bottom:52px;width:auto;max-height:44vh;border-left:0;border-top:1px solid var(--line);z-index:25;flex-direction:row;flex-wrap:wrap;gap:12px;align-items:flex-start}
   .props h3,.tipbox{display:none}
   .row{margin-bottom:0;flex:1 1 130px}

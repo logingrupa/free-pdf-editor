@@ -10,6 +10,7 @@ const $ = id => document.getElementById(id);
 const body = document.body;
 const ui = {
   viewport: $('viewport'), rail: $('rail'), props: $('props'), thumbs: $('thumbs'),
+  side: $('sidePanel'), layers: $('layers'),
   fileName: $('fileName'), fileMeta: $('fileMeta'), saveState: $('saveState'),
   fileInput: $('fileInput'), imgInput: $('imgInput'), toast: $('toast'),
   busy: $('busy'), busyText: $('busyText'), zoomVal: $('zoomVal'),
@@ -106,11 +107,46 @@ $('zoomIn').onclick = () => V.setZoom(S.state.zoom * 1.2);
 $('zoomOut').onclick = () => V.setZoom(S.state.zoom / 1.2);
 ui.zoomVal.onclick = () => V.setZoom(V.fitZoom(), true);
 $('pickBtn').onclick = () => ui.fileInput.click();
-$('pagesToggle').onclick = () => {
-  const off = body.dataset.pages !== 'off';
-  body.setAttribute('data-pages', off ? 'off' : 'on');
-  $('pagesToggle').title = t(off ? 'app.pagesShow' : 'app.pagesHide');
+$('sideToggle').onclick = () => {
+  const off = body.dataset.side !== 'off';
+  body.setAttribute('data-side', off ? 'off' : 'on');
+  $('sideToggle').title = t(off ? 'app.sideShow' : 'app.sideHide');
 };
+
+/* ---- side panel: pages or layers ------------------------------------- */
+const PIN_KEY = 'edit-pdf:side';
+const heldView = localStorage.getItem(PIN_KEY);
+let pinned = heldView === 'pages' || heldView === 'layers' ? heldView : null;
+let tabPick = null;                       // a tab click, until the selection moves on
+
+// pinned wins, then the last tab click, then the work: a selection means layers
+const sideView = () => pinned || tabPick || (S.state.sel ? 'layers' : 'pages');
+
+function paintSide() {
+  const view = sideView();
+  ui.side.dataset.view = view;
+  ui.side.querySelectorAll('.side-tab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
+  const held = pinned === view;
+  $('pinToggle').setAttribute('aria-pressed', String(held));
+  $('pinToggle').title = t(held ? 'app.unpin' : 'app.pin');
+}
+
+function setPin(view) {
+  pinned = view;
+  if (view) localStorage.setItem(PIN_KEY, view);
+  else localStorage.removeItem(PIN_KEY);
+  paintSide();
+  paintLayers();
+}
+
+$('sideTabs').onclick = e => {
+  const b = e.target.closest('.side-tab');
+  if (!b) return;
+  tabPick = b.dataset.view;
+  if (pinned) setPin(tabPick);
+  else { paintSide(); paintLayers(); }
+};
+$('pinToggle').onclick = () => setPin(pinned === sideView() ? null : sideView());
 
 $('newBtn').onclick = () => {
   if (!confirm(t('msg.closeConfirm'))) return;
@@ -314,31 +350,37 @@ function layersPage() {
   return first || S.state.pages[0] || null;
 }
 
-const layerLabel = a => {
-  const text = (a.text || '').trim().replace(/\s+/g, ' ');
-  return text ? text.slice(0, 38) : typeName(a.type);
-};
+// the kind chip already names the type, so the row name is the text or nothing
+const layerLabel = a => (a.text || '').trim().replace(/\s+/g, ' ').slice(0, 38);
 
 /** The page's annotations, topmost first, reorderable by dragging. */
-function layersSection() {
-  const wrap = document.createElement('div');
-  wrap.className = 'layers';
+let layerKey = '';
+function paintLayers() {
   const pg = layersPage();
-  if (!pg) return wrap;
+  const list = pg ? S.annotsOf(pg.id) : [];
+  // a drag emits an annots event per pointermove, so only a real change rebuilds
+  const key = [ui.side.dataset.view, pg && pg.id, S.state.pages.length, S.state.sel,
+    list.map(a => a.id + ':' + layerLabel(a)).join('|')].join('#');
+  if (key === layerKey) return;
+  layerKey = key;
 
-  const head = document.createElement('h3');
-  head.textContent = S.state.pages.length > 1
-    ? `${t('app.layers')} ${S.state.pages.indexOf(pg) + 1}`
-    : t('app.layers');
-  wrap.append(head);
+  const box = ui.layers;
+  box.textContent = '';
+  if (!pg) return;
 
-  const list = S.annotsOf(pg.id);
+  if (S.state.pages.length > 1) {
+    const cap = document.createElement('p');
+    cap.className = 'layers-page';
+    cap.textContent = t('app.layersPage', { n: S.state.pages.indexOf(pg) + 1 });
+    box.append(cap);
+  }
+
   if (!list.length) {
     const empty = document.createElement('p');
     empty.className = 'layers-empty';
     empty.textContent = t('app.layersEmpty');
-    wrap.append(empty);
-    return wrap;
+    box.append(empty);
+    return;
   }
 
   // drawn last means on top, so the list reads the other way round
@@ -368,15 +410,18 @@ function layersSection() {
       const last = rows.length - 1;
       S.moveAnnot(pg.id, last - from, last - i);   // back to draw order
     });
-    wrap.append(row);
+    box.append(row);
   });
 
   const hint = document.createElement('p');
   hint.className = 'layers-hint';
   hint.textContent = t('app.layersHint');
-  wrap.append(hint);
-  return wrap;
+  box.append(hint);
 }
+
+// the panel is off screen on a phone, so the list rides with the properties there
+const narrow = window.matchMedia('(max-width:760px)');
+narrow.addEventListener('change', () => (narrow.matches ? ui.props : ui.side).append(ui.layers));
 
 function paintProps() {
   const cur = target();
@@ -446,8 +491,8 @@ function paintProps() {
     }
   }
 
-  p.append(layersSection());
   p.classList.toggle('empty', !p.querySelector('.row'));
+  if (narrow.matches) p.append(ui.layers);
 
   const tip = document.createElement('div');
   tip.className = 'tipbox';
@@ -508,7 +553,7 @@ function paintThumbs() {
       if (!Number.isNaN(from)) S.movePage(from, i);
     });
     ui.thumbs.append(d);
-    thumbQueue = thumbQueue.then(() => V.renderThumb(p, c, 150)).catch(() => {});
+    thumbQueue = thumbQueue.then(() => V.renderThumb(p, c, 164)).catch(() => {});
   });
 }
 
@@ -531,9 +576,9 @@ window.addEventListener('keydown', e => {
 });
 
 /* ---- events ---------------------------------------------------------- */
-S.on('doc', () => { paintChrome(); paintThumbs(); paintProps(); });
-S.on('annots', () => paintChrome());
-S.on('sel', () => paintProps());
+S.on('doc', () => { paintChrome(); paintThumbs(); paintSide(); paintLayers(); paintProps(); });
+S.on('annots', () => { paintChrome(); paintLayers(); });
+S.on('sel', () => { tabPick = null; paintSide(); paintLayers(); paintProps(); });
 S.on('tool', () => { paintRail(); paintProps(); });
 S.on('history', () => paintChrome());
 S.on('zoom', () => paintChrome());
@@ -545,4 +590,6 @@ S.on('saveerror', () => { ui.saveState.classList.remove('on'); ui.saveState.text
 V.init(ui.viewport);
 paintRail();
 paintChrome();
+paintSide();
+paintLayers();
 restoreSaved();
