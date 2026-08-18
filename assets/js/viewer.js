@@ -414,6 +414,9 @@ export function scrollToPage(id) {
 }
 
 /* ---- pointer --------------------------------------------------------- */
+// whatever single-finger gesture is running, so a second finger can end it
+let endGesture = null;
+
 const local = (rec, ev) => {
   const pt = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(rec.g.getScreenCTM().inverse());
   return { x: pt.x, y: pt.y };
@@ -446,6 +449,7 @@ function onDown(ev, p) {
       paintOverlay(p.id);
       return startMove(ev, p, annotById(hit.dataset.id));
     }
+    if (ev.pointerType === 'touch') { startPan(ev, p); return; }
     select(null);
     paintOverlay(p.id);
     return;
@@ -481,6 +485,7 @@ function onDown(ev, p) {
     node = fresh;
   };
   const up = () => {
+    endGesture = null;
     rec.svg.removeEventListener('pointermove', move);
     rec.svg.removeEventListener('pointerup', up);
     rec.svg.removeEventListener('pointercancel', up);
@@ -490,6 +495,7 @@ function onDown(ev, p) {
     touch(p.id);
     paintOverlay(p.id);
   };
+  endGesture = up;
   rec.svg.addEventListener('pointermove', move);
   rec.svg.addEventListener('pointerup', up);
   rec.svg.addEventListener('pointercancel', up);
@@ -527,6 +533,86 @@ function isTiny(a) {
   return a.w < 4 || a.h < 4;
 }
 
+/** One finger on empty page space scrolls the document; a tap still deselects. */
+function startPan(ev, p) {
+  const sx = ev.clientX, sy = ev.clientY;
+  const left = viewport.scrollLeft, top = viewport.scrollTop;
+  let moved = false;
+
+  const move = e => {
+    if (e.pointerId !== ev.pointerId) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (!moved && Math.hypot(dx, dy) < 6) return;
+    moved = true;
+    viewport.scrollLeft = left - dx;
+    viewport.scrollTop = top - dy;
+  };
+  const up = () => {
+    endGesture = null;
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+    if (!moved) { select(null); paintOverlay(p.id); }
+  };
+  endGesture = up;
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+}
+
+/* ---- pinch to zoom --------------------------------------------------- */
+// The overlay sets touch-action:none so the tools get every touch, which also
+// means the browser will not zoom for us. Two fingers are handled here instead.
+const grip = new Map();
+let pinch = null;
+
+function spread() {
+  const [a, b] = [...grip.values()];
+  return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+}
+
+function pinchDown(ev) {
+  if (ev.pointerType !== 'touch') return;
+  grip.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (grip.size !== 2) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  if (endGesture) endGesture();
+  closeEditor(true);
+  const { d, cx, cy } = spread();
+  const r = viewport.getBoundingClientRect();
+  // the point between the fingers, in unscaled content space, stays put
+  pinch = {
+    d,
+    zoom: state.zoom,
+    ax: (viewport.scrollLeft + cx - r.left) / state.zoom,
+    ay: (viewport.scrollTop + cy - r.top) / state.zoom,
+  };
+}
+
+function pinchMove(ev) {
+  if (!grip.has(ev.pointerId)) return;
+  grip.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (!pinch || grip.size !== 2) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const { d, cx, cy } = spread();
+  state.zoom = clamp(pinch.zoom * (d / pinch.d), 0.15, 5);
+  state.fit = false;
+  // only resize: the rendered bitmap stretches, and a sharp one lands on release
+  for (const p of state.pages) sizePage(p);
+  const r = viewport.getBoundingClientRect();
+  viewport.scrollLeft = pinch.ax * state.zoom - (cx - r.left);
+  viewport.scrollTop = pinch.ay * state.zoom - (cy - r.top);
+  emit('zoom');
+}
+
+function pinchUp(ev) {
+  if (!grip.delete(ev.pointerId) || !pinch) return;
+  pinch = null;
+  setZoom(state.zoom);
+}
+
 function startMove(ev, p, a) {
   const rec = wraps.get(p.id);
   const start = local(rec, ev);
@@ -546,10 +632,12 @@ function startMove(ev, p, a) {
     paintOverlay(p.id);
   };
   const up = () => {
+    endGesture = null;
     rec.svg.removeEventListener('pointermove', move);
     rec.svg.removeEventListener('pointerup', up);
     if (moved) touch(p.id);
   };
+  endGesture = up;
   rec.svg.addEventListener('pointermove', move);
   rec.svg.addEventListener('pointerup', up);
 }
@@ -579,10 +667,12 @@ function startResize(ev, p, a, h) {
     paintOverlay(p.id);
   };
   const up = () => {
+    endGesture = null;
     rec.svg.removeEventListener('pointermove', move);
     rec.svg.removeEventListener('pointerup', up);
     if (moved) touch(p.id);
   };
+  endGesture = up;
   rec.svg.addEventListener('pointermove', move);
   rec.svg.addEventListener('pointerup', up);
 }
@@ -680,6 +770,10 @@ export async function renderThumb(p, canvas, cssWidth) {
 /* ---- wiring ---------------------------------------------------------- */
 export function init(viewportEl) {
   viewport = viewportEl;
+  viewport.addEventListener('pointerdown', pinchDown, { capture: true });
+  viewport.addEventListener('pointermove', pinchMove, { capture: true });
+  viewport.addEventListener('pointerup', pinchUp, { capture: true });
+  viewport.addEventListener('pointercancel', pinchUp, { capture: true });
   on('doc', () => { buildAll(); if (state.fit) setZoom(fitZoom(), true); });
   on('annots', id => paintOverlay(id));
   on('sel', () => state.pages.forEach(p => paintOverlay(p.id)));

@@ -39,7 +39,7 @@ p{margin:0}
 .button{
   display:inline-flex;align-items:center;justify-content:center;gap:9px;
   height:48px;padding:0 22px;border-radius:11px;border:1px solid transparent;
-  font-weight:560;font-size:15px;cursor:pointer;text-decoration:none;
+  font-weight:560;font-size:15px;cursor:pointer;text-decoration:none;white-space:nowrap;
   transition:background .15s,border-color .15s,color .15s,transform .15s;
 }
 .button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -78,14 +78,28 @@ p{margin:0}
   color:var(--fg-dim);cursor:pointer;transition:color .15s,border-color .15s;
 }
 .icon-button:hover{color:var(--fg);border-color:var(--fg-mute)}
-.lang{display:flex;align-items:center;gap:2px;flex:none;padding:3px;background:var(--bg-2);border:1px solid var(--line);border-radius:9px}
-.lang a{
-  min-width:30px;height:30px;display:grid;place-items:center;padding:0 6px;border-radius:6px;
-  color:var(--fg-mute);text-decoration:none;font:600 11.5px/1 var(--font-mono);letter-spacing:.08em;
-  transition:color .15s,background .15s;
+.lang{position:relative;flex:none}
+.lang>summary{
+  list-style:none;display:flex;align-items:center;gap:6px;height:38px;padding:0 10px;
+  border:1px solid var(--line);border-radius:9px;background:var(--bg-2);color:var(--fg-dim);
+  cursor:pointer;font:600 11.5px/1 var(--font-mono);letter-spacing:.06em;
+  transition:color .15s,border-color .15s;
 }
-.lang a:hover{color:var(--fg);background:var(--bg-3)}
-.lang a[aria-current]{color:var(--fg);background:var(--bg-3)}
+.lang>summary::-webkit-details-marker{display:none}
+.lang>summary::marker{content:""}
+.lang>summary:hover,.lang[open]>summary{color:var(--fg);border-color:var(--fg-mute)}
+.lang>summary svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5}
+.lang-menu{
+  position:absolute;top:calc(100% + 7px);right:0;z-index:60;min-width:158px;
+  display:flex;flex-direction:column;gap:1px;padding:5px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);
+}
+.lang-menu a{
+  padding:9px 11px;border-radius:7px;white-space:nowrap;
+  color:var(--fg-dim);text-decoration:none;font-size:14px;
+}
+.lang-menu a:hover{background:var(--bg-3);color:var(--fg)}
+.lang-menu a[aria-current]{color:var(--fg);font-weight:600;background:var(--bg-3)}
 .icon-button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---- hero ------------------------------------------------------------ */
@@ -332,9 +346,7 @@ tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
 }
 @media (max-width:660px){
   .nav-links{display:none}
-  /* the bar has no room for the nav CTA once the language group is in;
-     the hero repeats it a screen-height below */
-  .nav-inner>.button-primary{display:none}
+  .cta-row .button{white-space:normal}
   .cards,.steps{grid-template-columns:1fr}
   .mock-props{display:none}
   .mock-body{min-height:280px}
@@ -344,6 +356,11 @@ tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
   .zero{padding:20px 18px}
   .faq summary{font-size:15.5px}
   .faq-answer{padding-right:0}
+}
+@media (max-width:560px){
+  /* the longest translation of the CTA no longer fits beside the brand;
+     the hero repeats it a thumb-length below */
+  .nav-inner>.button-primary{display:none}
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}

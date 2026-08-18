@@ -357,6 +357,24 @@
     });
   }
 
+  // <details> opens the language menu on its own; it only needs dismissing.
+  function wireSwitcher() {
+    var menus = document.querySelectorAll('details.lang');
+    if (!menus.length) return;
+    function closeAll(except) {
+      for (var i = 0; i < menus.length; i++) if (menus[i] !== except) menus[i].open = false;
+    }
+    document.addEventListener('click', function (event) {
+      closeAll(event.target.closest ? event.target.closest('details.lang') : null);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeAll(null);
+    });
+  }
+
   window.i18n = { lang: lang, tag: tag, t: t };
-  document.addEventListener('DOMContentLoaded', paintDom);
+  document.addEventListener('DOMContentLoaded', function () {
+    paintDom();
+    wireSwitcher();
+  });
 })();
