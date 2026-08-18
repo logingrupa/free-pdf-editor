@@ -86,30 +86,41 @@ export function warmFaces(families) {
   }
 }
 
+// A font descriptor carrying only the Nonsymbolic flag makes pdf.js call an
+// embedded Times New Roman sans-serif, so the suggestion is checked, not trusted.
+const OTHER = { sans: 'serif', serif: 'sans' };
+const SHORT = 8;   // below this a width is not distinctive enough to judge
+
 /**
- * Read weight and slant off a line's own advance width. Upright and slanted
- * share advances at the same weight, so a plain italic line reads as regular;
- * bold italic is narrower than bold and does come through. Faces are fetched one
- * at a time and only until the answer is certain, so ordinary text costs one.
+ * Read family, weight and slant off a line's own advance width. Upright and
+ * slanted share advances at the same weight, so a plain italic line reads as
+ * regular; bold italic is narrower than bold and does come through. Faces are
+ * fetched one at a time and only until a width is certain, nearest first.
  */
 export async function matchFace(family, str, size, width) {
-  if (!(width > 0) || !str.trim()) return PLAIN;
+  const plain = { family, ...PLAIN };
+  if (!(width > 0) || str.trim().length < SHORT) return plain;
+  const families = OTHER[family] ? [family, OTHER[family]] : [family];
   try {
     const tried = [];
-    for (const v of VARIANTS) {
-      const f = await loadFont(`${family}-${v[0]}`);
-      const e = Math.abs(measure(f, str, size) - width) / width;
-      if (e < SURE) return { bold: v[1], italic: v[2] };
-      tried.push({ v, e });
+    for (const pass of [VARIANTS.slice(0, 2), VARIANTS.slice(2)]) {
+      for (const fam of families) {
+        for (const v of pass) {
+          const f = await loadFont(`${fam}-${v[0]}`);
+          const e = Math.abs(measure(f, str, size) - width) / width;
+          if (e < SURE) return { family: fam, bold: v[1], italic: v[2] };
+          tried.push({ fam, v, e });
+        }
+      }
     }
     let best = tried[0];
-    for (const t of tried) if (t.e < best.e - 0.005) best = t;   // ties keep the simpler face
-    if (best.e > FITS) return PLAIN;                             // unknown face, stay upright
-    return { bold: best.v[1], italic: best.v[2] };
+    for (const t of tried) if (t.e < best.e - 0.005) best = t;   // ties keep the first guess
+    if (best.e > FITS) return plain;                             // unknown face, leave it alone
+    return { family: best.fam, bold: best.v[1], italic: best.v[2] };
   } catch (e) {
-    // the weight is a nicety, never a reason to refuse the edit
+    // the match is a nicety, never a reason to refuse the edit
     console.warn('font match failed, using regular', e);
-    return PLAIN;
+    return plain;
   }
 }
 

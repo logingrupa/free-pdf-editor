@@ -177,7 +177,7 @@ async function getLines(p) {
     if (size < 2 || Math.abs(Math.atan2(tx[1], tx[0])) > 0.02) continue;   // upright text only
     const st = tc.styles[it.fontName] || {};
     parts.push({
-      str: it.str, x: tx[4], y: tx[5], size, w: it.width,
+      str: it.str, x: tx[4], y: tx[5], size, w: it.width, fname: it.fontName,
       fam: famOf(st.fontFamily), asc: st.ascent || 0.83, desc: st.descent || -0.21,
     });
   }
@@ -198,11 +198,17 @@ async function getLines(p) {
       if (cur) lines.push(cur);
       cur = {
         id: `${p.id}:${lines.length}`, x: it.x, y: it.y, x2: it.x + it.w,
-        size: it.size, str: it.str, fam: it.fam, asc: it.asc, desc: it.desc,
+        size: it.size, str: it.str, fam: it.fam, asc: it.asc, desc: it.desc, fname: it.fname,
       };
     }
   }
   if (cur) lines.push(cur);
+
+  const seen = new Map();
+  const bucket = ln => Math.round((ln.x2 - ln.x) * 20) / 20;
+  for (const ln of lines) seen.set(bucket(ln), (seen.get(bucket(ln)) || 0) + 1);
+  for (const ln of lines) ln.locked = seen.get(bucket(ln)) > 1;
+
   lineCache.set(p.id, lines);
   return lines;
 }
@@ -250,13 +256,32 @@ function sampleColors(p, rec, b) {
   return { bg: hex(bg), fg: far > 40 ? hex(fg) : fallback.fg };
 }
 
+const faceCache = new Map();   // srcId:fontName -> Promise<{family, bold, italic}>
+
+/**
+ * Decide what a document font really is, once, from the longest line that is not
+ * part of a justified block. A justified line is padded out to the column width,
+ * so its width says nothing about the face that drew it.
+ */
+function classifyFont(p, ln) {
+  const key = `${p.srcId}:${ln.fname}`;
+  if (!faceCache.has(key)) {
+    const same = (lineCache.get(p.id) || [ln]).filter(l => l.fname === ln.fname);
+    const usable = same.filter(l => !l.locked && l.str.trim().length >= 8);
+    const pool = usable.length ? usable : (same.length ? same : [ln]);
+    const sample = pool.reduce((a, b) => (b.str.length > a.str.length ? b : a));
+    const suggested = FAMILIES.includes(sample.fam) ? sample.fam : 'sans';
+    faceCache.set(key, matchFace(suggested, sample.str, sample.size, sample.x2 - sample.x));
+  }
+  return faceCache.get(key);
+}
+
 /** Cover one line of the original text and drop an editable copy on top. */
 async function replaceLine(p, ln) {
   const rec = wraps.get(p.id);
   const b = lineBox(ln);
   const { bg, fg } = sampleColors(p, rec, b);
-  const family = FAMILIES.includes(ln.fam) ? ln.fam : 'sans';
-  const { bold, italic } = await matchFace(family, ln.str, ln.size, ln.x2 - ln.x);
+  const { family, bold, italic } = await classifyFont(p, ln);
   const f = await loadFont(fontKey({ family, bold, italic }));
   const a = addAnnot({
     page: p.id, type: 'etext', src: ln.id,
