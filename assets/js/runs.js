@@ -74,10 +74,10 @@ export function paraRange(text, from, to) {
   return out.length ? out : [0];
 }
 
-/** Restyle whole paragraphs. An empty range restyles every one of them. */
+/** Restyle whole paragraphs. from = null means no caret: every one of them. */
 export function styleParas(a, from, to, patch) {
   const count = String(a.text || '').split('\n').length;
-  const touched = to > from || from > 0 ? paraRange(a.text, from, to) : null;
+  const touched = from == null ? null : paraRange(a.text, from, to);
   const out = [];
   for (let i = 0; i < count; i++) {
     const own = (a.paras && a.paras[i]) || {};

@@ -530,11 +530,12 @@ export function styleText(a, patch) {
   keepEditing();
 }
 
-/** Restyle the paragraphs the caret touches, or all of them when it is idle. */
+/** Restyle the paragraphs the caret touches, or all of them when there is none. */
 export function styleParagraph(a, patch) {
-  const r = rangeOf(a);
-  if (r.to > r.from || r.from > 0) updateAnnot(a.id, { paras: styleParas(a, r.from, r.to, patch) });
-  else updateAnnot(a.id, { ...patch, paras: styleParas({ ...a, ...patch }, 0, 0, patch) });
+  // a live caret means a paragraph, wherever it sits; no caret means all of them
+  const r = range && range.id === a.id ? range : null;
+  if (r) updateAnnot(a.id, { paras: styleParas(a, r.from, r.to, patch) });
+  else updateAnnot(a.id, { ...patch, paras: styleParas({ ...a, ...patch }, null, 0, patch) });
   keepEditing();
 }
 
