@@ -3,6 +3,7 @@
 // measured on the page as it looks before the user rotates it (delta = 0).
 
 import { uid, debounce } from './util.js';
+import { hasBox } from './text.js';
 
 export const state = {
   fileName: '',
@@ -67,12 +68,22 @@ export function undo() { if (!past.length) return; future.push(snap()); restore(
 export function redo() { if (!future.length) return; past.push(snap()); restore(future.pop()); emit('history'); }
 function clearHistory() { past = []; future = []; emit('history'); }
 
+/** Old saves put a letter shadow in shadow, which now draws only a box shadow. */
+function migrate(a) {
+  if ((a.type === 'text' || a.type === 'etext') && a.shadow > 0 && !hasBox(a)) {
+    a.tsh = a.shadow;
+    if (a.shadowColor) a.tshColor = a.shadowColor;
+    a.shadow = 0;
+  }
+  return a;
+}
+
 /* ---- mutations ------------------------------------------------------- */
 export function setDoc({ fileName, sources, pages, annots }) {
   state.fileName = fileName;
   state.sources = sources;
   state.pages = pages;
-  state.annots = annots || [];
+  state.annots = (annots || []).map(migrate);
   state.sel = null;
   clearHistory();
   emit('doc');
