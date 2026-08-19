@@ -124,7 +124,7 @@ function pieceEl(pc, ln, off, fill) {
   const t = el('text', {
     x: pc.x + off, y: ln.y + off, fill: fill || pc.style.color,
     'font-family': cssFamily(key), 'font-size': pc.style.size,
-    'pointer-events': 'none', 'xml:space': 'preserve',
+    'pointer-events': 'none',
   });
   t.textContent = pc.text;
   return t;

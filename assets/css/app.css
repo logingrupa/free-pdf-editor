@@ -11,7 +11,8 @@ body{
 }
 button{font:inherit;color:inherit}
 svg:not(.ov){width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-svg.ov text{stroke:none}
+/* a run boundary can put a space at the start of a piece; keep it rendered */
+svg.ov text{stroke:none;white-space:pre}
 svg.ov image{-webkit-user-drag:none}
 svg .solid{fill:currentColor;stroke:none}
 
