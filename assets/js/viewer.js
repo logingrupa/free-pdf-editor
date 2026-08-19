@@ -461,6 +461,8 @@ const SPIN_ARM = 22;        // screen px from the bottom edge to the turn handle
 function drawSelection(p, host) {
   const a = annotById(state.sel);
   if (!a || a.page !== p.id) return;
+  if (editor && editor.a.id === a.id) return;    // the editor frame stands in
+
   const b = box(a);
   const s = 7 / (state.zoom || 1);           // handles keep a constant screen size
   const sel = el('g', { class: 'sel', transform: spin(a) });

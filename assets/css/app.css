@@ -167,9 +167,10 @@ body:not([data-empty]) .viewport{display:block}
 .selbar-btn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .selbar-btn[data-act="del"]:hover{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger)}
 .selbar-btn svg{width:17px;height:17px}
+/* the same thin dashed frame the selection wears, so editing looks selected */
 .editbox{
-  position:absolute;z-index:20;margin:0;border:0;outline:2px solid var(--accent);border-radius:2px;
-  background:#fff;color:#000;resize:none;overflow:hidden;padding:0;box-shadow:0 4px 18px rgba(0,0,0,.3);
+  position:absolute;z-index:20;margin:0;border:0;outline:1px dashed var(--accent);outline-offset:1px;
+  background:#fff;color:#000;resize:none;overflow:hidden;padding:0;
 }
 
 /* ---- dropzone -------------------------------------------------------- */
