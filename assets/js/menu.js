@@ -101,7 +101,11 @@ function portal({ x, y, node, opener }) {
   node.focus();
 
   const outside = ev => { if (!node.contains(ev.target)) closeMenu(); };
-  const away = () => closeMenu();
+  const away = ev => {
+    // a scroll inside the portal (the font list) is not a dismissal
+    if (ev && ev.target instanceof Node && node.contains(ev.target)) return;
+    closeMenu();
+  };
   const keys = ev => {
     // the app reads plain keys as tool shortcuts, so the menu keeps its own
     ev.stopPropagation();
