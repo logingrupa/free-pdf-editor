@@ -525,7 +525,15 @@ export function paraHere(a) {
 export function styleText(a, patch) {
   const r = rangeOf(a);
   if (r.to > r.from) {
-    updateAnnot(a.id, { runs: styleRun(a, r.from, r.to, patch) });
+    const runs = styleRun(a, r.from, r.to, patch);
+    // everything in one run is the box's own style wearing a disguise: promote
+    // it, so the editor and the panel read the box and see the truth
+    if (runs && runs.length === 1 && runs[0].n >= String(a.text || '').length) {
+      const { n, ...deltas } = runs[0];
+      updateAnnot(a.id, { ...deltas, runs: null });
+    } else {
+      updateAnnot(a.id, { runs });
+    }
   } else {
     // nothing picked out, so the box's own style moves and the runs follow it
     const next = { ...a, ...patch };
@@ -1239,7 +1247,11 @@ export function openEditor(p, a, isNew) {
   closeEditor(false);
   const rec = wraps.get(p.id);
   loadFaces(a).then(() => {
-    const key = fontKey(a);
+    // a textarea shows one style, so it wears what the first letters wear:
+    // uniformly restyled text then looks in the editor as it does on the page
+    const st0 = styleAt(a, 0);
+    const ps0 = paraStyle(a, 0);
+    const key = fontKey(st0);
     const m = rec.g.getScreenCTM();
     const ta = document.createElement('textarea');
     ta.className = 'editbox';
@@ -1254,16 +1266,16 @@ export function openEditor(p, a, isNew) {
     st.transform = `matrix(${m.a},${m.b},${m.c},${m.d},${m.e},${m.f}) ${spun}translate(${a.x}px,${a.y}px)`;
     st.width = a.w + 'px';
     st.fontFamily = `${cssFamily(key)}, sans-serif`;
-    st.fontSize = a.size + 'px';
-    st.lineHeight = a.lh || LINE_H;
-    st.color = a.color;
-    st.textAlign = a.align;
+    st.fontSize = st0.size + 'px';
+    st.lineHeight = ps0.lh;
+    st.color = st0.color;
+    st.textAlign = ps0.align;
     document.body.append(ta);
     editor = { ta, a, p, isNew, was: a.text };
     range = { id: a.id, from: 0, to: 0 };
     updateBar();                                  // the box is being typed in, not handled
 
-    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(a.size * (a.lh || LINE_H), ta.scrollHeight) + 'px'; };
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(st0.size * ps0.lh, ta.scrollHeight) + 'px'; };
     grow();
     ta.addEventListener('input', () => {
       const before = a.text;
