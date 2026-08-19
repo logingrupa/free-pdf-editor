@@ -1293,7 +1293,7 @@ export function openEditor(p, a, isNew) {
     document.body.append(ta);
     editor = { ta, a, p, isNew, was: a.text };
     range = { id: a.id, from: 0, to: 0 };
-    updateBar();                                  // the box is being typed in, not handled
+    paintOverlay(p.id);   // hides the drawn copy, the frame and the toolbar
 
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(st0.size * ps0.lh, ta.scrollHeight) + 'px'; };
     grow();
@@ -1318,8 +1318,6 @@ export function openEditor(p, a, isNew) {
       }
       e.stopPropagation();
     });
-    const node = rec.g.querySelector(`[data-id="${a.id}"]`);
-    if (node) node.style.display = 'none';        // hide the rendered copy while editing
     // focus after the click that opened it settles, or that mouseup blurs us straight away
     requestAnimationFrame(() => {
       if (editor && editor.ta === ta) {
