@@ -130,7 +130,7 @@ body[data-side="off"] #sideToggle svg{transform:rotate(180deg)}
 
 /* ---- stage ----------------------------------------------------------- */
 .stage{flex:1;position:relative;min-width:0;background:var(--stage)}
-.viewport{position:absolute;inset:0;overflow:auto;touch-action:none;padding:24px 24px 80px;display:none}
+.viewport{position:absolute;inset:0;overflow:auto;touch-action:none;padding:24px 24px 80px;display:none;user-select:none;-webkit-user-select:none}
 body:not([data-empty]) .viewport{display:block}
 .pagewrap{margin:0 auto 30px;position:relative;width:max-content}
 .page{position:relative;background:var(--paper);box-shadow:var(--shadow);border-radius:2px}

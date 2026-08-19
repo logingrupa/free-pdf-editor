@@ -849,11 +849,13 @@ function onDown(ev, p) {
   if (tool === 'select' || tool === 'edit') {
     const h = ev.target.closest('.h');
     if (h && state.sel) {
+      ev.preventDefault();               // the drag must not start a text selection
       const held = annotById(state.sel);
       return h.dataset.h === 'spin' ? startSpin(ev, p, held) : startResize(ev, p, held, h.dataset.h);
     }
     const hit = ev.target.closest('.an');
     if (hit) {
+      ev.preventDefault();
       select(hit.dataset.id);
       paintOverlay(p.id);
       return startMove(ev, p, annotById(hit.dataset.id));
