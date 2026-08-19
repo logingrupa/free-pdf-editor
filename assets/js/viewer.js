@@ -1112,6 +1112,7 @@ function startMove(ev, p, a) {
     barMuted = false;
     touch(p.id);
     paintOverlay(p.id);
+    emit('settled');
   };
   endGesture = up;
   rec.svg.addEventListener('pointermove', move);
@@ -1149,6 +1150,7 @@ function startSpin(ev, p, a) {
     barMuted = false;
     touch(p.id);
     paintOverlay(p.id);
+    emit('settled');
   };
   endGesture = up;
   rec.svg.addEventListener('pointermove', move);
@@ -1217,6 +1219,7 @@ function startResize(ev, p, a, h) {
     barMuted = false;
     touch(p.id);
     paintOverlay(p.id);
+    emit('settled');
   };
   endGesture = up;
   rec.svg.addEventListener('pointermove', move);

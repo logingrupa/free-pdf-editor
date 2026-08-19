@@ -836,6 +836,8 @@ S.on('annots', () => { paintChrome(); paintLayers(); });
 S.on('sel', () => { tabPick = null; paintSide(); paintLayers(); paintProps(); });
 S.on('tool', () => { paintRail(); paintProps(); });
 S.on('range', () => paintProps());
+// a finished drag or turn refreshes the numbers; live drags leave them alone
+S.on('settled', () => paintProps());
 S.on('history', () => paintChrome());
 S.on('zoom', () => paintChrome());
 S.on('dirty', () => { ui.saveState.hidden = false; ui.saveState.classList.remove('on'); ui.saveState.textContent = t('save.saving'); });
