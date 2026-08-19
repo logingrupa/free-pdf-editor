@@ -127,3 +127,18 @@ export function reflowRuns(runs, before, after) {
   }
   return out.length ? out : null;
 }
+
+/** Keep per-paragraph settings on their paragraphs as newlines come and go. */
+export function reflowParas(paras, before, after) {
+  if (!paras || !paras.length || before === after) return paras;
+  const { head, cut, add } = edit(before, after);
+  const nl = s => (s.match(/\n/g) || []).length;
+  const at = nl(before.slice(0, head));            // the paragraph the edit starts in
+  const gone = nl(before.slice(head, head + cut));
+  const born = nl(after.slice(head, head + add));
+  if (gone === born || at >= paras.length) return paras;
+  const out = paras.slice();
+  // a paragraph split mid-text carries its settings into both halves
+  out.splice(at + 1, gone, ...Array.from({ length: born }, () => ({ ...out[at] })));
+  return out;
+}

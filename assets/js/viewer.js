@@ -6,7 +6,7 @@ import { uid, clamp, invert, mul, turn, canTurn, rotCenter } from './util.js';
 import { ICON } from './icons.js';
 import { openMenu, closeMenu, onLongPress } from './menu.js';
 import { METRIC, LINE_H, cssFamily, fontKey, loadFont, loadFaces, readyFaces, layout, ascentOf, styleAt, paraStyle, padBox, hasBox, boxPath, matchFace, warmFaces } from './text.js';
-import { styleRun, styleParas, paraRange, reflowRuns } from './runs.js';
+import { styleRun, styleParas, paraRange, reflowRuns, reflowParas } from './runs.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -1261,6 +1261,7 @@ export function openEditor(p, a, isNew) {
       const before = a.text;
       a.text = ta.value;
       if (a.runs) a.runs = reflowRuns(a.runs, before, a.text);
+      if (a.paras) a.paras = reflowParas(a.paras, before, a.text);
       readRange(ta, a);
       grow();
     });
