@@ -811,7 +811,11 @@ function paintThumbs() {
 /* ---- keyboard -------------------------------------------------------- */
 const KEYS = { e: 'edit', v: 'select', t: 'text', p: 'pen', h: 'highlight', r: 'rect', o: 'ellipse', a: 'arrow', w: 'whiteout' };
 window.addEventListener('keydown', e => {
-  if (V.isEditing() || e.target.isContentEditable || /input|textarea/i.test(e.target.tagName)) return;
+  if (V.isEditing() || e.target.isContentEditable || /input|textarea/i.test(e.target.tagName)) {
+    // the editor handles its own Escape only while it holds the focus
+    if (e.key === 'Escape' && V.isEditing()) V.closeEditor(true);
+    return;
+  }
   const meta = e.ctrlKey || e.metaKey;
   if (meta && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? S.redo() : S.undo(); return; }
   if (meta && e.key.toLowerCase() === 'y') { e.preventDefault(); S.redo(); return; }

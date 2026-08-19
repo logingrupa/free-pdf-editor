@@ -496,6 +496,10 @@ let lastDownAt = 0;
 window.addEventListener('pointerdown', ev => {
   lastDown = ev.target;
   lastDownAt = performance.now();
+  // a press anywhere else always ends the edit, even after a panel control
+  // took the focus and left the textarea nothing to blur from
+  if (editor && ev.target !== editor.ta
+    && !(ev.target.closest && ev.target.closest('.props, .selbar, .menu'))) closeEditor(true);
 }, true);
 
 export const textRange = () => (range && annotById(range.id) ? range : null);
@@ -680,6 +684,10 @@ function paintOverlay(pageId) {
   const p = pageById(pageId);
   rec.g.textContent = '';
   for (const a of annotsOf(pageId)) rec.g.append(drawAnnot(a));
+  if (editor && editor.a.page === pageId) {
+    const n = rec.g.querySelector(`[data-id="${editor.a.id}"]`);
+    if (n) n.style.display = 'none';       // the textarea stands in for it
+  }
   paintTextLayer(p, rec.g);
   drawSelection(p, rec.g);
   updateBar();
