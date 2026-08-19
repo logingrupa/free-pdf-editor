@@ -819,6 +819,15 @@ window.addEventListener('keydown', e => {
   const meta = e.ctrlKey || e.metaKey;
   if (meta && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? S.redo() : S.undo(); return; }
   if (meta && e.key.toLowerCase() === 'y') { e.preventDefault(); S.redo(); return; }
+  if (meta && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
+    const a = S.annotById(S.state.sel);
+    if (a && (a.type === 'text' || a.type === 'etext')) {
+      e.preventDefault();
+      V.toggleStyle(a, e.key.toLowerCase());
+      paintProps();
+    }
+    return;
+  }
   if (meta && e.key.toLowerCase() === 's') { e.preventDefault(); ui.downloadBtn.click(); return; }
   if (meta && (e.key === '=' || e.key === '+')) { e.preventDefault(); V.setZoom(S.state.zoom * 1.2); return; }
   if (meta && e.key === '-') { e.preventDefault(); V.setZoom(S.state.zoom / 1.2); return; }

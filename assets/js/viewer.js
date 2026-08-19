@@ -5,7 +5,7 @@ import { state, on, emit, pageById, annotsOf, annotById, srcById, select, commit
 import { uid, clamp, invert, mul, turn, canTurn, rotCenter } from './util.js';
 import { ICON } from './icons.js';
 import { openMenu, closeMenu, onLongPress } from './menu.js';
-import { METRIC, LINE_H, cssFamily, fontKey, loadFont, loadFaces, readyFaces, layout, ascentOf, styleAt, paraStyle, padBox, hasBox, boxPath, matchFace, warmFaces } from './text.js';
+import { METRIC, LINE_H, cssFamily, fontKey, loadFont, loadFaces, readyFaces, layout, ascentOf, styleAt, paraStyle, padBox, hasBox, boxPath, matchFace, warmFaces, weightOf } from './text.js';
 import { styleRun, styleParas, paraRange, reflowRuns, reflowParas } from './runs.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -553,6 +553,13 @@ export function styleParagraph(a, patch) {
   if (r) updateAnnot(a.id, { paras: styleParas(a, r.from, r.to, patch) });
   else updateAnnot(a.id, { ...patch, paras: styleParas({ ...a, ...patch }, null, 0, patch) });
   keepEditing();
+}
+
+/** Flip bold, italic or underline on whatever the caret has hold of. */
+export function toggleStyle(a, which) {
+  const here = styleHere(a);
+  styleText(a, which === 'b' ? { weight: weightOf(here) >= 600 ? 400 : 700 }
+    : which === 'i' ? { italic: !here.italic } : { under: !here.under });
 }
 
 /** Put the caret back where it was, so a second style lands on the same words. */
@@ -1301,6 +1308,12 @@ export function openEditor(p, a, isNew) {
     }
     ta.addEventListener('keydown', e => {
       if (e.key === 'Escape') { e.preventDefault(); closeEditor(true, true); }
+      const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'b' || k === 'i' || k === 'u')) {
+        e.preventDefault();
+        readRange(ta, a);
+        toggleStyle(a, k);
+      }
       e.stopPropagation();
     });
     const node = rec.g.querySelector(`[data-id="${a.id}"]`);
