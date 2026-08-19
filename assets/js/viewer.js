@@ -513,7 +513,11 @@ function readRange(ta, a) {
 }
 
 /** The style the panel should show: what the caret is sitting on. */
-export const styleHere = a => styleAt(a, rangeOf(a).from);
+export function styleHere(a) {
+  const r = rangeOf(a);
+  // a collapsed caret sits after a character and wears that character's style
+  return styleAt(a, r.to > r.from ? r.from : Math.max(0, r.from - 1));
+}
 
 /** The paragraph settings of the paragraph the caret is in. */
 export function paraHere(a) {
