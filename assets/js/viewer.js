@@ -769,7 +769,6 @@ function buildAll() {
     sizePage(p);
     paintOverlay(p.id);
     svg.addEventListener('pointerdown', ev => onDown(ev, p));
-    svg.addEventListener('dblclick', ev => onDblClick(ev, p));
     svg.addEventListener('contextmenu', ev => { ev.preventDefault(); onMenu(ev.clientX, ev.clientY, ev.target, p); });
     onLongPress(svg, (x, y, ev) => {
       if (state.tool !== 'select' && state.tool !== 'edit') return;   // a drawing gesture is running
@@ -833,6 +832,8 @@ function onFrame(fn) {
 
 const styleFor = tool => ({ ...state.style[tool] });
 
+let lastHit = { id: null, t: 0, x: 0, y: 0 };   // the press before this one
+
 function onDown(ev, p) {
   if (ev.button !== 0) return;
   const rec = wraps.get(p.id);
@@ -860,9 +861,17 @@ function onDown(ev, p) {
     const hit = ev.target.closest('.an');
     if (hit) {
       ev.preventDefault();
-      select(hit.dataset.id);
+      // selecting rebuilds the overlay, which swallows the browser's own
+      // click and dblclick, so a second press is read by hand
+      const again = lastHit.id === hit.dataset.id
+        && performance.now() - lastHit.t < 450
+        && Math.hypot(ev.clientX - lastHit.x, ev.clientY - lastHit.y) < 8;
+      lastHit = { id: hit.dataset.id, t: performance.now(), x: ev.clientX, y: ev.clientY };
+      const held = annotById(hit.dataset.id);
+      select(held.id);
       paintOverlay(p.id);
-      return startMove(ev, p, annotById(hit.dataset.id));
+      if (again && (held.type === 'text' || held.type === 'etext')) return openEditor(p, held, false);
+      return startMove(ev, p, held);
     }
     if (ev.pointerType === 'touch') { startPan(ev, p); return; }
     select(null);
@@ -1229,13 +1238,6 @@ function startResize(ev, p, a, h) {
   rec.svg.addEventListener('pointermove', move);
   rec.svg.addEventListener('pointerup', up);
   rec.svg.addEventListener('pointercancel', up);
-}
-
-function onDblClick(ev, p) {
-  const hit = ev.target.closest('.an');
-  if (!hit) return;
-  const a = annotById(hit.dataset.id);
-  if (a && (a.type === 'text' || a.type === 'etext')) { select(a.id); openEditor(p, a, false); }
 }
 
 async function placeImage(p, pt) {
